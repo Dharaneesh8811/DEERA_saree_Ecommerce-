@@ -1,0 +1,11 @@
+alembic
+asyncpg
+boto3
+fastapi
+PyJWT
+pwdlib[argon2]
+pydantic-settings
+python-multipart
+SQLAlchemy
+uuid6
+uvicorn[standard]

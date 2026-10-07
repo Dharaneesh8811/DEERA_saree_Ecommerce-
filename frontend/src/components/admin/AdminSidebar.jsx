@@ -30,7 +30,7 @@ export default function AdminSidebar() {
     router.replace("/admin/login");
   }
 
-  const menuItems = [
+    const menuItems = [
     {
       name: "Dashboard",
       href: "/admin",
@@ -50,6 +50,11 @@ export default function AdminSidebar() {
       name: "Orders",
       href: "/admin/orders",
       icon: "◫",
+    },
+    {
+      name: "Bulk Orders",
+      href: "/admin/bulk-orders",
+      icon: "▤",
     },
     {
       name: "Coupons",

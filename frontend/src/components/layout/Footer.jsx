@@ -4,6 +4,7 @@ import NewsletterForm from "./NewsletterForm";
 const footerLinks = {
   explore: [
     { label: "Collections", href: "/collections" },
+    { label: "Bulk Orders", href: "/bulk-order" },
     { label: "Journal", href: "/blogs" },
     { label: "About Us", href: "/about" },
     { label: "Store", href: "/stores" },

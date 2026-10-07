@@ -25,30 +25,21 @@ export default function CategoryPage({ params }) {
   const [sortOption, setSortOption] = useState("default");
 
   const PRODUCTS_PER_PAGE = 8;
+
   const [currentPage, setCurrentPage] = useState(1);
 
-
-    useEffect(() => {
+  /*
+   * Reset pagination whenever
+   * search, filters or sorting changes
+   */
+  useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, selectedFilters, sortOption]);
 
-  const totalPages = Math.ceil(
-    filteredProducts.length / PRODUCTS_PER_PAGE
-  );
-
-  const paginatedProducts = useMemo(() => {
-    const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE;
-
-    return filteredProducts.slice(
-      startIndex,
-      startIndex + PRODUCTS_PER_PAGE
-    );
-  }, [filteredProducts, currentPage]);
-
-
   /*
    * Current category
-   * URL now contains category ID
+   *
+   * URL contains category ID
    */
   const currentCategory = useMemo(() => {
     return categories.find(
@@ -58,7 +49,9 @@ export default function CategoryPage({ params }) {
 
   /*
    * Category products
-   * Match product.category_id with category ID
+   *
+   * Match product.categoryId with
+   * the category ID from the URL
    */
   const categoryProducts = useMemo(() => {
     if (!category) return [];
@@ -70,7 +63,7 @@ export default function CategoryPage({ params }) {
   }, [products, category]);
 
   /*
-   * Search + filters + sorting
+   * Search + Filters + Sorting
    */
   const filteredProducts = useMemo(() => {
     let result = [...categoryProducts];
@@ -98,7 +91,7 @@ export default function CategoryPage({ params }) {
     if (priceFilters.length > 0) {
       result = result.filter((product) => {
         return priceFilters.some((filter) => {
-          const price = product.sellingPrice;
+          const price = Number(product.sellingPrice || 0);
 
           if (filter === "Under ₹10,000") {
             return price < 10000;
@@ -159,7 +152,8 @@ export default function CategoryPage({ params }) {
     /*
      * Fabric Weight
      */
-    const weightFilters = selectedFilters.fabricWeight || [];
+    const weightFilters =
+      selectedFilters.fabricWeight || [];
 
     if (weightFilters.length > 0) {
       result = result.filter((product) =>
@@ -183,13 +177,17 @@ export default function CategoryPage({ params }) {
      */
     if (sortOption === "price-low") {
       result.sort(
-        (a, b) => a.sellingPrice - b.sellingPrice
+        (a, b) =>
+          Number(a.sellingPrice || 0) -
+          Number(b.sellingPrice || 0)
       );
     }
 
     if (sortOption === "price-high") {
       result.sort(
-        (a, b) => b.sellingPrice - a.sellingPrice
+        (a, b) =>
+          Number(b.sellingPrice || 0) -
+          Number(a.sellingPrice || 0)
       );
     }
 
@@ -200,6 +198,26 @@ export default function CategoryPage({ params }) {
     selectedFilters,
     sortOption,
   ]);
+
+  /*
+   * Pagination
+   *
+   * IMPORTANT:
+   * filteredProducts is declared BEFORE this section.
+   */
+  const totalPages = Math.ceil(
+    filteredProducts.length / PRODUCTS_PER_PAGE
+  );
+
+  const paginatedProducts = useMemo(() => {
+    const startIndex =
+      (currentPage - 1) * PRODUCTS_PER_PAGE;
+
+    return filteredProducts.slice(
+      startIndex,
+      startIndex + PRODUCTS_PER_PAGE
+    );
+  }, [filteredProducts, currentPage]);
 
   /*
    * Category name
@@ -222,12 +240,63 @@ export default function CategoryPage({ params }) {
    */
   function clearAllFilters() {
     setSelectedFilters({});
+    setCurrentPage(1);
   }
+
+  /*
+   * Previous page
+   */
+  function handlePreviousPage() {
+    setCurrentPage((page) =>
+      Math.max(page - 1, 1)
+    );
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+
+  /*
+   * Next page
+   */
+  function handleNextPage() {
+    setCurrentPage((page) =>
+      Math.min(page + 1, totalPages)
+    );
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+
+  /*
+   * Go to specific page
+   */
+  function handlePageChange(page) {
+    setCurrentPage(page);
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+
+  /*
+   * Page numbers
+   */
+  const pageNumbers = Array.from(
+    { length: totalPages },
+    (_, index) => index + 1
+  );
 
   return (
     <main className="min-h-screen bg-nera-ivory">
 
-      {/* Page Header */}
+      {/* =========================================
+          PAGE HEADER
+      ========================================= */}
       <section className="border-b border-nera-gold/20 bg-nera-sand">
         <div className="nera-container py-14 sm:py-16 lg:py-20">
 
@@ -248,7 +317,9 @@ export default function CategoryPage({ params }) {
         </div>
       </section>
 
-      {/* Category Navigation */}
+      {/* =========================================
+          CATEGORY NAVIGATION
+      ========================================= */}
       <section className="border-b border-nera-gold/20 bg-nera-white">
         <div className="nera-container">
 
@@ -289,12 +360,16 @@ export default function CategoryPage({ params }) {
         </div>
       </section>
 
-      {/* Product Area */}
+      {/* =========================================
+          PRODUCT AREA
+      ========================================= */}
       <section className="bg-nera-ivory py-10 sm:py-12 lg:py-16">
 
         <div className="nera-container">
 
-          {/* Toolbar */}
+          {/* =====================================
+              TOOLBAR
+          ===================================== */}
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
             <div>
@@ -369,7 +444,9 @@ export default function CategoryPage({ params }) {
 
           </div>
 
-          {/* Search */}
+          {/* =====================================
+              SEARCH
+          ===================================== */}
           <div className="mb-8 flex w-full justify-center">
 
             <div className="group flex w-full max-w-2xl items-center rounded-full border border-nera-gold/30 bg-nera-white px-5 shadow-[0_6px_25px_rgba(36,26,24,0.05)] transition-all duration-300 focus-within:border-nera-wine/50 focus-within:shadow-[0_8px_30px_rgba(36,26,24,0.08)]">
@@ -405,7 +482,9 @@ export default function CategoryPage({ params }) {
 
           </div>
 
-          {/* Search Result */}
+          {/* =====================================
+              SEARCH RESULT
+          ===================================== */}
           {searchQuery.trim() && (
             <p className="mb-6 text-sm text-nera-espresso/60">
               {filteredProducts.length}{" "}
@@ -416,15 +495,23 @@ export default function CategoryPage({ params }) {
             </p>
           )}
 
-          {/* Product Grid */}
+          {/* =====================================
+              PRODUCT GRID
+          ===================================== */}
           {loading ? (
-            <div className="py-20 text-center" role="status">
+            <div
+              className="py-20 text-center"
+              role="status"
+            >
               <p className="font-serif text-2xl text-nera-wine">
                 Loading sarees...
               </p>
             </div>
           ) : error ? (
-            <div className="py-20 text-center" role="alert">
+            <div
+              className="py-20 text-center"
+              role="alert"
+            >
               <p className="font-serif text-2xl text-nera-wine">
                 Unable to load this collection
               </p>
@@ -435,25 +522,80 @@ export default function CategoryPage({ params }) {
             </div>
           ) : products.length === 0 ? (
             <div className="py-20 text-center">
+
               <p className="font-serif text-2xl text-nera-wine">
                 No sarees available
               </p>
 
               <p className="mt-3 text-sm text-nera-espresso/55">
-                New pieces will appear here when they are available.
+                New pieces will appear here when they are
+                available.
               </p>
+
             </div>
           ) : filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-x-5 lg:grid-cols-4 lg:gap-6">
+            <>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-x-5 lg:grid-cols-4 lg:gap-6">
 
-              {paginatedProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                />
-              ))}
+                {paginatedProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                  />
+                ))}
 
-            </div>
+              </div>
+
+              {/* =================================
+                  PAGINATION
+              ================================= */}
+              {totalPages > 1 && (
+                <div className="mt-12 flex flex-wrap items-center justify-center gap-2">
+
+                  {/* Previous */}
+                  <button
+                    type="button"
+                    onClick={handlePreviousPage}
+                    disabled={currentPage === 1}
+                    className="border border-nera-gold/30 bg-nera-white px-4 py-2.5 text-[10px] font-medium uppercase tracking-[0.12em] text-nera-wine transition hover:border-nera-wine disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Prev
+                  </button>
+
+                  {/* Page Numbers */}
+                  {pageNumbers.map((page) => (
+                    <button
+                      key={page}
+                      type="button"
+                      onClick={() =>
+                        handlePageChange(page)
+                      }
+                      className={`flex h-10 min-w-10 items-center justify-center border px-3 text-[10px] font-medium transition ${
+                        currentPage === page
+                          ? "border-nera-wine bg-nera-wine text-nera-white"
+                          : "border-nera-gold/30 bg-nera-white text-nera-wine hover:border-nera-wine"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                  {/* Next */}
+                  <button
+                    type="button"
+                    onClick={handleNextPage}
+                    disabled={
+                      currentPage === totalPages
+                    }
+                    className="border border-nera-gold/30 bg-nera-white px-4 py-2.5 text-[10px] font-medium uppercase tracking-[0.12em] text-nera-wine transition hover:border-nera-wine disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+
+                </div>
+              )}
+
+            </>
           ) : (
             <div className="py-20 text-center">
 
@@ -470,6 +612,7 @@ export default function CategoryPage({ params }) {
                 onClick={() => {
                   setSearchQuery("");
                   setSelectedFilters({});
+                  setCurrentPage(1);
                 }}
                 className="mt-6 border border-nera-wine bg-nera-wine px-6 py-3 text-[10px] font-medium uppercase tracking-[0.14em] text-nera-white transition hover:bg-nera-espresso"
               >
@@ -483,10 +626,13 @@ export default function CategoryPage({ params }) {
 
       </section>
 
-      {/* Filter Drawer */}
+      {/* =========================================
+          FILTER DRAWER
+      ========================================= */}
       {showFilters && (
         <div className="fixed inset-0 z-[80]">
 
+          {/* Overlay */}
           <button
             type="button"
             aria-label="Close filters"
@@ -494,12 +640,18 @@ export default function CategoryPage({ params }) {
             className="absolute inset-0 bg-nera-espresso/50"
           />
 
+          {/* Drawer */}
           <div className="absolute right-0 top-0 h-full w-full max-w-[400px] overflow-y-auto bg-nera-white shadow-2xl">
 
             <FilterSidebar
               selectedFilters={selectedFilters}
-              onApply={setSelectedFilters}
-              onClose={() => setShowFilters(false)}
+              onApply={(filters) => {
+                setSelectedFilters(filters);
+                setCurrentPage(1);
+              }}
+              onClose={() =>
+                setShowFilters(false)
+              }
             />
 
           </div>

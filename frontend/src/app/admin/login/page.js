@@ -2,334 +2,295 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Eye,
-  EyeOff,
-  ShieldCheck,
-  UserRound,
-  ArrowRight,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, LockKeyhole, Sparkles } from "lucide-react";
 
 import { loginAdmin } from "@/services/authService";
-import "./login.css";
 
 export default function AdminLoginPage() {
   const router = useRouter();
 
-  const [loginType, setLoginType] = useState("customer");
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  async function handleAdminLogin(e) {
-    e.preventDefault();
+  async function handleSubmit(event) {
+    event.preventDefault();
 
     setError("");
-    setLoading(true);
+
+    if (!email.trim() || !password.trim()) {
+      setError("Please enter your email and password.");
+      return;
+    }
 
     try {
-      const { access_token, admin } = await loginAdmin(
-        email,
+      setLoading(true);
+
+      const data = await loginAdmin(
+        email.trim(),
         password
       );
 
       localStorage.setItem(
         "dera_admin_token",
-        access_token
+        data.access_token
       );
 
       localStorage.setItem(
         "dera_admin",
-        JSON.stringify(admin)
+        JSON.stringify(data.admin)
       );
 
       router.push("/admin");
     } catch (err) {
       setError(
-        err.response?.status === 401
-          ? "Invalid email or password."
-          : "Unable to login. Please try again."
+        err.response?.data?.detail ||
+          "Invalid email or password."
       );
     } finally {
       setLoading(false);
     }
   }
 
-  function handleCustomerContinue() {
-    router.push("/");
-  }
-
-  function changeLoginType(type) {
-    setLoginType(type);
-    setError("");
-  }
-
   return (
-    <main className="admin-login-page">
+    <main className="min-h-screen bg-[#eee7dc] p-3 sm:p-5 lg:p-8">
+      <div className="mx-auto flex min-h-[calc(100vh-24px)] max-w-6xl overflow-hidden bg-[#fffdf9] shadow-[0_25px_80px_rgba(55,35,25,0.14)] sm:min-h-[calc(100vh-40px)]">
 
-      {/* Decorative background elements */}
-      <div className="login-decoration login-decoration-left" />
-      <div className="login-decoration login-decoration-right" />
+        {/* =====================================================
+            LEFT BRAND PANEL
+        ====================================================== */}
+        <section className="relative hidden w-[46%] overflow-hidden bg-[#651a31] lg:flex">
 
-      <div className="admin-login-card">
+          {/* Decorative circles */}
+          <div className="absolute -right-32 -top-32 h-80 w-80 rounded-full border border-[#c9a35d]/20" />
 
-        {/* BRAND */}
+          <div className="absolute -bottom-40 -left-32 h-96 w-96 rounded-full border border-[#c9a35d]/20" />
 
-        <div className="admin-login-header">
+          <div className="absolute left-10 top-1/2 h-px w-28 bg-[#c9a35d]/30" />
 
-          <div className="login-brand">
-            <span className="login-brand-line" />
-            <span>DEERA</span>
-            <span className="login-brand-line" />
-          </div>
+          <div className="absolute bottom-24 right-10 h-px w-28 bg-[#c9a35d]/30" />
 
-          <p className="login-overline">
-            SILK · HERITAGE · ELEGANCE
-          </p>
+          {/* Main content */}
+          <div className="relative z-10 flex w-full flex-col justify-between p-12 xl:p-16">
 
-          <h1>Welcome</h1>
+            {/* Top */}
+            <div>
+              <div className="flex items-center gap-4">
+                <span className="h-px w-10 bg-[#c9a35d]" />
 
-          <p className="login-description">
-            Continue as a customer or access your
-            administration panel.
-          </p>
-
-        </div>
-
-        {/* LOGIN TYPE SWITCH */}
-
-        <div className="login-type-switch">
-
-          <button
-            type="button"
-            className={`login-type-button ${
-              loginType === "customer"
-                ? "active"
-                : ""
-            }`}
-            onClick={() =>
-              changeLoginType("customer")
-            }
-          >
-            <UserRound size={17} />
-
-            <span>Customer</span>
-          </button>
-
-          <button
-            type="button"
-            className={`login-type-button ${
-              loginType === "admin"
-                ? "active"
-                : ""
-            }`}
-            onClick={() =>
-              changeLoginType("admin")
-            }
-          >
-            <ShieldCheck size={17} />
-
-            <span>Admin</span>
-          </button>
-
-        </div>
-
-        {/* CUSTOMER */}
-
-        {loginType === "customer" && (
-          <div className="customer-login-content">
-
-            <div className="customer-icon-wrapper">
-              <div className="customer-icon">
-                <UserRound size={27} />
+                <span className="text-[10px] font-medium uppercase tracking-[0.35em] text-[#e0bd78]">
+                  DEERA SILKS
+                </span>
               </div>
-
-              <span className="customer-icon-dot" />
             </div>
 
-            <p className="content-eyebrow">
-              WELCOME TO DEERA
-            </p>
+            {/* Center */}
+            <div className="my-auto">
 
-            <h2>
-              Shop with DEERA
-            </h2>
-
-            <p className="customer-description">
-              No account is required. Continue
-              directly to our collection and
-              discover your perfect silk saree.
-            </p>
-
-            <button
-              type="button"
-              className="admin-login-button customer-button"
-              onClick={handleCustomerContinue}
-            >
-              <span>Continue to Home</span>
-
-              <ArrowRight size={18} />
-            </button>
-
-            <div className="login-trust-note">
-              <Sparkles size={13} />
-              <span>
-                Discover timeless silk craftsmanship
-              </span>
-            </div>
-
-          </div>
-        )}
-
-        {/* ADMIN */}
-
-        {loginType === "admin" && (
-          <form
-            className="admin-login-form"
-            onSubmit={handleAdminLogin}
-          >
-
-            <div className="admin-login-form-heading">
-
-              <div className="admin-form-icon">
-                <ShieldCheck size={21} />
+              <div className="mb-7 flex h-16 w-16 items-center justify-center rounded-full border border-[#c9a35d]/50 bg-[#7a263e]">
+                <Sparkles
+                  size={25}
+                  strokeWidth={1.3}
+                  className="text-[#dfbb72]"
+                />
               </div>
 
-              <div>
-                <p className="content-eyebrow">
-                  ADMINISTRATION
+              <p className="mb-4 text-[10px] font-medium uppercase tracking-[0.4em] text-[#d6ad63]">
+                ADMINISTRATION
+              </p>
+
+              <h1 className="max-w-md font-serif text-5xl font-normal leading-[1.05] text-[#fff8ed] xl:text-6xl">
+                Where
+                <br />
+                heritage
+                <br />
+                <span className="italic text-[#d7b46c]">
+                  meets elegance.
+                </span>
+              </h1>
+
+              <p className="mt-7 max-w-sm text-sm leading-7 text-[#eadbd0]/70">
+                Manage your collections, products, orders
+                and the world of Deera Silk from one
+                elegant workspace.
+              </p>
+            </div>
+
+            {/* Bottom */}
+            <div>
+              <div className="mb-5 h-px w-full bg-[#c9a35d]/20" />
+
+              <div className="flex items-center justify-between">
+                <p className="font-serif text-sm italic text-[#d8b678]">
+                  Heritage, reimagined.
                 </p>
 
-                <h2>
-                  Sign in to DEERA
-                </h2>
+                <p className="text-[9px] uppercase tracking-[0.2em] text-[#eadbd0]/40">
+                  EST. DEERA
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* =====================================================
+            RIGHT LOGIN PANEL
+        ====================================================== */}
+        <section className="flex w-full items-center justify-center bg-[#fffdf9] px-6 py-12 sm:px-10 lg:w-[54%] lg:px-14 xl:px-20">
+
+          <div className="w-full max-w-md">
+
+            {/* Mobile Logo */}
+            <div className="mb-12 text-center lg:hidden">
+
+              <div className="flex items-center justify-center gap-3">
+                <span className="h-px w-8 bg-[#c9a35d]" />
+
+                <h1 className="font-serif text-3xl font-semibold tracking-[0.25em] text-[#651a31]">
+                  DEERA
+                </h1>
+
+                <span className="h-px w-8 bg-[#c9a35d]" />
               </div>
 
+              <p className="mt-3 text-[9px] uppercase tracking-[0.32em] text-[#9a7136]">
+                SILK · HERITAGE · ELEGANCE
+              </p>
             </div>
 
-            <div className="admin-form-group">
+            {/* Header */}
+            <div className="mb-10">
 
-              <label htmlFor="email">
-                Email Address
-              </label>
+              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#f6eddf]">
+                <LockKeyhole
+                  size={20}
+                  strokeWidth={1.5}
+                  className="text-[#651a31]"
+                />
+              </div>
 
-              <input
-                id="email"
-                type="email"
-                placeholder="Enter admin email"
-                value={email}
-                onChange={(e) =>
-                  setEmail(e.target.value)
-                }
-                required
-              />
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#a47b3e]">
+                Private Access
+              </p>
 
+              <h2 className="font-serif text-4xl font-normal text-[#2d211e] sm:text-5xl">
+                Welcome back.
+              </h2>
+
+              <p className="mt-4 max-w-sm text-sm leading-6 text-[#78645c]">
+                Sign in to continue to your Deera
+                administration workspace.
+              </p>
             </div>
 
-            <div className="admin-form-group">
+            {/* Form */}
+            <form onSubmit={handleSubmit}>
 
-              <label htmlFor="password">
-                Password
-              </label>
+              {/* Email */}
+              <div>
+                <label
+                  htmlFor="email"
+                  className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.18em] text-[#57453e]"
+                >
+                  Email Address
+                </label>
 
-              <div className="password-input-wrapper">
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(event) =>
+                    setEmail(event.target.value)
+                  }
+                  placeholder="Enter your email"
+                  autoComplete="email"
+                  disabled={loading}
+                  className="h-14 w-full border-b border-[#d8cbbb] bg-transparent px-1 text-sm text-[#2d211e] outline-none transition placeholder:text-[#a89991] focus:border-[#651a31] disabled:opacity-50"
+                />
+              </div>
+
+              {/* Password */}
+              <div className="mt-7">
+                <label
+                  htmlFor="password"
+                  className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.18em] text-[#57453e]"
+                >
+                  Password
+                </label>
 
                 <input
                   id="password"
-                  type={
-                    showPassword
-                      ? "text"
-                      : "password"
-                  }
-                  placeholder="Enter password"
+                  type="password"
                   value={password}
-                  onChange={(e) =>
-                    setPassword(e.target.value)
+                  onChange={(event) =>
+                    setPassword(event.target.value)
                   }
-                  required
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  disabled={loading}
+                  className="h-14 w-full border-b border-[#d8cbbb] bg-transparent px-1 text-sm text-[#2d211e] outline-none transition placeholder:text-[#a89991] focus:border-[#651a31] disabled:opacity-50"
                 />
-
-                <button
-                  type="button"
-                  className="password-toggle"
-                  onClick={() =>
-                    setShowPassword(
-                      (prev) => !prev
-                    )
-                  }
-                  aria-label={
-                    showPassword
-                      ? "Hide password"
-                      : "Show password"
-                  }
-                >
-                  {showPassword ? (
-                    <EyeOff size={18} />
-                  ) : (
-                    <Eye size={18} />
-                  )}
-                </button>
-
               </div>
 
-            </div>
+              {/* Error */}
+              {error && (
+                <div
+                  role="alert"
+                  className="mt-6 border-l-2 border-[#8c273f] bg-[#faf0f1] px-4 py-3 text-sm text-[#8c273f]"
+                >
+                  {error}
+                </div>
+              )}
 
-            {error && (
-              <div className="admin-login-error">
-                <span className="error-icon">
-                  !
+              {/* Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="group mt-9 flex h-14 w-full items-center justify-between bg-[#651a31] px-6 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition-all duration-300 hover:bg-[#501326] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <span>
+                  {loading
+                    ? "Signing in..."
+                    : "Enter Administration"}
                 </span>
 
-                <span>{error}</span>
-              </div>
-            )}
+                {!loading && (
+                  <ArrowRight
+                    size={19}
+                    strokeWidth={1.5}
+                    className="transition-transform duration-300 group-hover:translate-x-1"
+                  />
+                )}
+              </button>
+            </form>
 
-            <button
-              type="submit"
-              className="admin-login-button"
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <span className="login-spinner" />
-                  Signing in...
-                </>
-              ) : (
-                <>
-                  <span>Sign In</span>
-                  <ArrowRight size={18} />
-                </>
-              )}
-            </button>
+            {/* Security note */}
+            <div className="mt-9 flex items-start gap-3 border-t border-[#e5dbcf] pt-6">
 
-            <div className="admin-security-note">
-              <ShieldCheck size={14} />
+              <LockKeyhole
+                size={15}
+                strokeWidth={1.4}
+                className="mt-0.5 shrink-0 text-[#b48a45]"
+              />
 
-              <span>
-                Secure administrator access
-              </span>
+              <p className="text-[11px] leading-5 text-[#8a7770]">
+                This area is restricted to authorized
+                Deera Silk administrators.
+              </p>
             </div>
 
-          </form>
-        )}
+            {/* Footer */}
+            <div className="mt-10 text-center">
+              <p className="font-serif text-xs italic text-[#a78b7b]">
+                Silk · Craft · Legacy
+              </p>
+            </div>
 
-        {/* FOOTER */}
-
-        <div className="login-footer">
-          <span />
-          <p>
-            Heritage, reimagined.
-          </p>
-          <span />
-        </div>
-
+          </div>
+        </section>
       </div>
-
     </main>
   );
 }

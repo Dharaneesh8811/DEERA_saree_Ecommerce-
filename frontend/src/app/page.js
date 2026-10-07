@@ -4,6 +4,7 @@ import EditorsPicks from "@/components/home/EditorsPicks";
 import SilkStory from "@/components/home/SilkStory";
 import OccasionSection from "@/components/home/OccasionSection";
 import TrustSection from "@/components/home/TrustSection";
+import BulkOrderCTA from "@/components/home/BulkOrderCTA";
 import SareeExpertCTA from "@/components/home/SareeExpertCTA";
 
 export default function Home() {
@@ -20,6 +21,8 @@ export default function Home() {
       <OccasionSection />
 
       <TrustSection />
+
+      <BulkOrderCTA />
 
       <SareeExpertCTA />
     </main>

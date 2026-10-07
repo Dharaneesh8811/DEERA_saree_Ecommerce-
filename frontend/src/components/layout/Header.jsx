@@ -46,6 +46,13 @@ export default function Header() {
           </Link>
 
           <Link
+            href="/bulk-order"
+            className="text-xs uppercase tracking-[0.12em] text-nera-espresso/70 transition hover:text-nera-wine"
+          >
+            Bulk Orders
+          </Link>
+
+          <Link
             href="/about"
             className="text-xs uppercase tracking-[0.12em] text-nera-espresso/70 transition hover:text-nera-wine"
           >

@@ -28,6 +28,7 @@ from app.models.order_item import OrderItem  # noqa: F401
 from app.models.review import Review
 from app.models.coupon import Coupon
 from app.models.return_request import ReturnRequest
+from app.models.bulk_order import BulkOrder  # noqa: F401
 
 
 config = context.config

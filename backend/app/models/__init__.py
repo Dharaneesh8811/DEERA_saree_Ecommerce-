@@ -16,6 +16,7 @@ from app.models.product_image import ProductImage
 from app.models.review import Review
 from app.models.coupon import Coupon
 from app.models.return_request import ReturnRequest
+from app.models.bulk_order import BulkOrder
 
 
 __all__ = [

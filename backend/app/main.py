@@ -13,6 +13,7 @@ from app.api.routes.orders import router as orders_router
 from app.api.routes.admin import router as admin_router
 from app.api.routes.returns import router as returns_router
 from app.api.routes.analytics import router as analytics_router
+from app.api.routes.bulk_orders import router as bulk_orders_router
 
 from app.db.dependencies import get_db
 
@@ -46,6 +47,7 @@ app.include_router(orders_router)
 app.include_router(admin_router)
 app.include_router(returns_router)
 app.include_router(analytics_router)
+app.include_router(bulk_orders_router)
 
 
 @app.get("/")

@@ -222,7 +222,7 @@ export default function ContactPage() {
 
 
       {/* =========================================================
-          PERSONAL CONSULTATION
+          PERSONAL & BULK ORDERS
       ========================================================= */}
       <section className="bg-nera-sand py-20 sm:py-24 lg:py-28">
         <div className="nera-container">
@@ -232,35 +232,72 @@ export default function ContactPage() {
             {/* Decorative border */}
             <div className="pointer-events-none absolute inset-4 border border-nera-gold/25 sm:inset-6" />
 
-            <div className="relative grid items-center gap-12 px-7 py-14 sm:px-12 sm:py-16 lg:grid-cols-[1fr_auto] lg:px-16 lg:py-20">
+            <div className="relative grid gap-10 px-7 py-14 sm:px-12 sm:py-16 lg:grid-cols-[1fr_auto] lg:items-center lg:gap-16 lg:px-16 lg:py-20">
 
+              {/* Content */}
               <div className="max-w-2xl">
 
                 <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-nera-gold">
-                  Personal guidance
+                  Personal & bulk orders
                 </p>
 
                 <h2 className="mt-4 font-serif text-3xl font-normal leading-tight text-nera-white sm:text-4xl lg:text-5xl">
-                  Tell us what you
+                  Shopping for yourself
                   <span className="block text-nera-rose">
-                    have in mind.
+                    or for many?
                   </span>
                 </h2>
 
                 <p className="mt-5 max-w-xl text-sm leading-7 text-nera-white/60 sm:text-base">
-                  Whether you're shopping for a wedding, festive celebration,
-                  everyday elegance, or a meaningful gift, we're happy to help
-                  you explore the possibilities.
+                  Whether you're choosing a saree for a special occasion or
+                  sourcing silk sarees for a wedding, boutique, event, or
+                  celebration, our team is here to help.
                 </p>
+
+                {/* Order types */}
+                <div className="mt-8 flex flex-wrap gap-x-7 gap-y-3">
+
+                  {[
+                    "Personal Shopping",
+                    "Weddings",
+                    "Boutiques",
+                    "Events",
+                  ].map((item) => (
+                    <div
+                      key={item}
+                      className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.16em] text-nera-white/45"
+                    >
+                      <span className="h-px w-4 bg-nera-gold/70" />
+                      {item}
+                    </div>
+                  ))}
+
+                </div>
 
               </div>
 
+              {/* Actions */}
+              <div className="flex flex-col gap-4 lg:min-w-[250px]">
 
-              <div className="lg:min-w-[250px]">
 
+                {/* Bulk order */}
+                <Link
+                  href="/bulk-order"
+                  className="group flex min-h-14 items-center justify-center gap-3 bg-nera-white px-7 text-[9px] font-medium uppercase tracking-[0.18em] text-nera-wine transition-all duration-300 hover:bg-nera-gold hover:text-nera-espresso"
+                >
+                  Request a Bulk Order
+
+                  <ArrowUpRight
+                    size={14}
+                    strokeWidth={1.4}
+                    className="transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1"
+                  />
+                </Link>
+
+                {/* Personal consultation */}
                 <Link
                   href="#"
-                  className="group flex min-h-14 items-center justify-center gap-3 bg-nera-white px-7 text-[9px] font-medium uppercase tracking-[0.18em] text-nera-wine transition-all duration-300 hover:bg-nera-gold hover:text-nera-espresso"
+                  className="group flex min-h-14 items-center justify-center gap-3 border border-nera-gold/40 px-7 text-[9px] font-medium uppercase tracking-[0.18em] text-nera-white transition-all duration-300 hover:border-nera-gold hover:bg-nera-gold hover:text-nera-espresso"
                 >
                   <MessageCircle
                     size={17}
@@ -276,7 +313,7 @@ export default function ContactPage() {
                   />
                 </Link>
 
-                <p className="mt-4 text-center text-[9px] uppercase tracking-[0.16em] text-nera-white/35">
+                <p className="mt-1 text-center text-[9px] uppercase tracking-[0.16em] text-nera-white/35">
                   We're here to help
                 </p>
 

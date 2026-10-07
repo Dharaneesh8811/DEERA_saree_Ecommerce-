@@ -11,6 +11,9 @@ import {
   MessageCircle,
 } from "lucide-react";
 
+import { useCartStore } from "@/store/cartStore";
+import { useWishlistStore } from "@/store/wishlistStore";
+
 const navigation = [
   {
     label: "Home",
@@ -19,6 +22,10 @@ const navigation = [
   {
     label: "Collections",
     href: "/collections",
+  },
+  {
+    label: "Bulk Orders",
+    href: "/bulk-order",
   },
   {
     label: "About",
@@ -45,6 +52,25 @@ const navigation = [
 export default function MobileMenu() {
   const [isOpen, setIsOpen] = useState(false);
 
+  /* ========================================
+     CART & WISHLIST
+  ======================================== */
+
+  const cartItems = useCartStore((state) => state.items);
+  const wishlistItems = useWishlistStore((state) => state.items);
+
+  const cartCount =
+    cartItems?.reduce(
+      (total, item) => total + (item.quantity || 1),
+      0
+    ) || 0;
+
+  const wishlistCount = wishlistItems?.length || 0;
+
+  /* ========================================
+     MENU CONTROLS
+  ======================================== */
+
   function openMenu() {
     setIsOpen(true);
   }
@@ -53,7 +79,10 @@ export default function MobileMenu() {
     setIsOpen(false);
   }
 
-  // Prevent background page from scrolling while menu is open
+  /* ========================================
+     PREVENT BACKGROUND SCROLL
+  ======================================== */
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -64,7 +93,10 @@ export default function MobileMenu() {
     };
   }, [isOpen]);
 
-  // Close menu with Escape key
+  /* ========================================
+     ESCAPE KEY
+  ======================================== */
+
   useEffect(() => {
     function handleKeyDown(event) {
       if (event.key === "Escape") {
@@ -86,6 +118,7 @@ export default function MobileMenu() {
       {/* ========================================
           MOBILE MENU BUTTON
       ======================================== */}
+
       <button
         type="button"
         onClick={openMenu}
@@ -111,6 +144,7 @@ export default function MobileMenu() {
       {/* ========================================
           OVERLAY
       ======================================== */}
+
       <div
         className={`
           fixed
@@ -132,6 +166,7 @@ export default function MobileMenu() {
       {/* ========================================
           MOBILE DRAWER
       ======================================== */}
+
       <aside
         aria-label="Mobile navigation"
         aria-hidden={!isOpen}
@@ -158,6 +193,7 @@ export default function MobileMenu() {
         {/* ========================================
             DRAWER HEADER
         ======================================== */}
+
         <div
           className="
             flex
@@ -209,6 +245,7 @@ export default function MobileMenu() {
         {/* ========================================
             NAVIGATION
         ======================================== */}
+
         <nav
           className="
             shrink-0
@@ -217,34 +254,59 @@ export default function MobileMenu() {
             py-5
           "
         >
-          {navigation.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={closeMenu}
-              className="
-                block
-                border-b
-                border-[#C6A15B]/15
-                bg-[#FFFDF8]
-                py-[15px]
-                font-serif
-                text-[18px]
-                leading-6
-                text-nera-espresso
-                transition-all
-                duration-200
-                hover:pl-2
-                hover:text-nera-wine
-              "
-            >
-              {item.label}
-            </Link>
-          ))}
+          {navigation.map((item) => {
+            const isBulkOrder = item.href === "/bulk-order";
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={closeMenu}
+                className={`
+                  block
+                  border-b
+                  border-[#C6A15B]/15
+                  bg-[#FFFDF8]
+                  py-[15px]
+                  font-serif
+                  text-[18px]
+                  leading-6
+                  transition-all
+                  duration-200
+                  hover:pl-2
+                  ${
+                    isBulkOrder
+                      ? "text-nera-wine"
+                      : "text-nera-espresso hover:text-nera-wine"
+                  }
+                `}
+              >
+                <span className="flex items-center justify-between">
+                  <span>{item.label}</span>
+
+                  {isBulkOrder && (
+                    <span
+                      className="
+                        font-sans
+                        text-[8px]
+                        font-medium
+                        uppercase
+                        tracking-[0.18em]
+                        text-nera-gold
+                      "
+                    >
+                      For Events
+                    </span>
+                  )}
+                </span>
+              </Link>
+            );
+          })}
 
           {/* ========================================
               QUICK ACTIONS
           ======================================== */}
+
           <div
             className="
               mt-6
@@ -253,7 +315,10 @@ export default function MobileMenu() {
               gap-2
             "
           >
-            {/* Search */}
+            {/* ========================================
+                SEARCH
+            ======================================== */}
+
             <Link
               href="/search"
               onClick={closeMenu}
@@ -277,16 +342,27 @@ export default function MobileMenu() {
             >
               <Search size={20} strokeWidth={1.5} />
 
-              <span className="text-[11px] font-medium uppercase tracking-wide">
+              <span
+                className="
+                  text-[11px]
+                  font-medium
+                  uppercase
+                  tracking-wide
+                "
+              >
                 Search
               </span>
             </Link>
 
-            {/* Wishlist */}
+            {/* ========================================
+                WISHLIST
+            ======================================== */}
+
             <Link
               href="/wishlist"
               onClick={closeMenu}
               className="
+                relative
                 flex
                 min-h-[88px]
                 flex-col
@@ -304,18 +380,60 @@ export default function MobileMenu() {
                 hover:text-nera-wine
               "
             >
-              <Heart size={20} strokeWidth={1.5} />
+              {/* Icon + Count */}
 
-              <span className="text-[11px] font-medium uppercase tracking-wide">
+              <div className="relative">
+                <Heart size={20} strokeWidth={1.5} />
+
+                {wishlistCount > 0 && (
+                  <span
+                    className="
+                      absolute
+                      -right-3
+                      -top-3
+                      flex
+                      h-5
+                      min-w-5
+                      items-center
+                      justify-center
+                      rounded-full
+                      bg-nera-wine
+                      px-1
+                      font-sans
+                      text-[9px]
+                      font-medium
+                      leading-none
+                      text-nera-white
+                    "
+                  >
+                    {wishlistCount > 99
+                      ? "99+"
+                      : wishlistCount}
+                  </span>
+                )}
+              </div>
+
+              <span
+                className="
+                  text-[11px]
+                  font-medium
+                  uppercase
+                  tracking-wide
+                "
+              >
                 Wishlist
               </span>
             </Link>
 
-            {/* Cart */}
+            {/* ========================================
+                CART
+            ======================================== */}
+
             <Link
               href="/cart"
               onClick={closeMenu}
               className="
+                relative
                 flex
                 min-h-[88px]
                 flex-col
@@ -333,9 +451,50 @@ export default function MobileMenu() {
                 hover:text-nera-wine
               "
             >
-              <ShoppingBag size={20} strokeWidth={1.5} />
+              {/* Icon + Count */}
 
-              <span className="text-[11px] font-medium uppercase tracking-wide">
+              <div className="relative">
+                <ShoppingBag
+                  size={20}
+                  strokeWidth={1.5}
+                />
+
+                {cartCount > 0 && (
+                  <span
+                    className="
+                      absolute
+                      -right-3
+                      -top-3
+                      flex
+                      h-5
+                      min-w-5
+                      items-center
+                      justify-center
+                      rounded-full
+                      bg-nera-wine
+                      px-1
+                      font-sans
+                      text-[9px]
+                      font-medium
+                      leading-none
+                      text-nera-white
+                    "
+                  >
+                    {cartCount > 99
+                      ? "99+"
+                      : cartCount}
+                  </span>
+                )}
+              </div>
+
+              <span
+                className="
+                  text-[11px]
+                  font-medium
+                  uppercase
+                  tracking-wide
+                "
+              >
                 Cart
               </span>
             </Link>
@@ -344,6 +503,7 @@ export default function MobileMenu() {
           {/* ========================================
               SAREE EXPERT CTA
           ======================================== */}
+
           <Link
             href="/contact"
             onClick={closeMenu}
@@ -367,7 +527,10 @@ export default function MobileMenu() {
               hover:bg-nera-espresso
             "
           >
-            <MessageCircle size={19} strokeWidth={1.6} />
+            <MessageCircle
+              size={19}
+              strokeWidth={1.6}
+            />
 
             <span>Talk to a Saree Expert</span>
           </Link>

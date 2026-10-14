@@ -1,10 +1,11 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from pydantic import BaseModel, Field
 
 from app.core.security import get_current_admin
 from app.db.dependencies import get_db
@@ -21,12 +22,35 @@ from app.schemas.order import (
     OrderUpdateStatus,
 )
 from app.services.coupons import calculate_coupon_discount
+from app.services.order_email import (
+    notify_order_placed,
+    notify_order_status_updated,
+)
 
 
 router = APIRouter(
     prefix="/api/orders",
     tags=["orders"],
 )
+
+
+def _get_unit_price(product: Product, variant: ProductVariant | None) -> Decimal:
+    if variant is None or variant.price is None:
+        return product.price
+
+    unit_price = variant.price
+    if product.discount_type == "percentage" and product.discount_percentage is not None:
+        unit_price = (
+            unit_price
+            * (Decimal("100") - product.discount_percentage)
+            / Decimal("100")
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return unit_price
+
+
+class OrderTrackRequest(BaseModel):
+    order_number: str = Field(min_length=1, max_length=40)
+    phone: str = Field(min_length=10, max_length=15)
 
 
 async def _build_items(payload_items, db: AsyncSession) -> tuple[list[OrderItem], Decimal]:
@@ -60,11 +84,7 @@ async def _build_items(payload_items, db: AsyncSession) -> tuple[list[OrderItem]
                     detail="Product variant does not belong to this product or is inactive",
                 )
 
-        unit_price = (
-            variant.price
-            if variant is not None and variant.price is not None
-            else product.price
-        )
+        unit_price = _get_unit_price(product, variant)
         item_subtotal = unit_price * payload_item.quantity
         subtotal += item_subtotal
         order_items.append(
@@ -162,7 +182,115 @@ async def create_order(
     )
     db.add(order)
     await db.commit()
-    return await _get_order(order.id, db)
+    order = await _get_order(order.id, db)
+    await notify_order_placed(order)
+    return order
+
+
+@router.post("/track")
+async def track_order(
+    payload: OrderTrackRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    order_number = payload.order_number.strip().upper()
+    phone = payload.phone.strip()
+
+    if not order_number or not phone:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Order reference and phone number are required",
+        )
+
+    result = await db.execute(
+        select(Order)
+        .options(selectinload(Order.items))
+        .where(
+            func.upper(Order.order_number) == order_number,
+            Order.customer_phone == phone,
+        )
+    )
+
+    order = result.scalar_one_or_none()
+
+    if order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="We couldn't verify these order details.",
+        )
+
+    # Return only tracking information, not the customer's
+    # address, email, or phone number.
+    return {
+        "id": str(order.id),
+        "order_number": order.order_number,
+        "status": order.status.value,
+        "created_at": order.created_at,
+        "updated_at": order.updated_at,
+        "items": [
+            {
+                "id": str(item.id),
+                "product_id": str(item.product_id) if item.product_id else None,
+                "product_name": item.product_name,
+                "quantity": item.quantity,
+                "unit_price": item.unit_price,
+                "subtotal": item.subtotal,
+            }
+            for item in order.items
+        ],
+        "subtotal": order.subtotal,
+        "shipping_fee": order.shipping_fee,
+        "discount_amount": order.discount_amount,
+        "total_amount": order.total_amount,
+        "final_amount": order.final_amount,
+    }
+
+
+@router.get("/reference/{order_number}")
+async def get_order_by_reference(
+    order_number: str,
+    db: AsyncSession = Depends(get_db),
+):
+    reference = order_number.strip().upper()
+
+    result = await db.execute(
+        select(Order)
+        .options(selectinload(Order.items))
+        .where(func.upper(func.trim(Order.order_number)) == reference)
+    )
+    order = result.scalar_one_or_none()
+
+    if order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found",
+        )
+
+
+    # Return tracking details without exposing customer contact information.
+    return {
+        "id": str(order.id),
+        "order_number": order.order_number,
+        "status": order.status.value,
+        "created_at": order.created_at,
+        "updated_at": order.updated_at,
+        "items": [
+            {
+                "id": str(item.id),
+                "product_id": str(item.product_id) if item.product_id else None,
+                "product_name": item.product_name,
+                "quantity": item.quantity,
+                "unit_price": item.unit_price,
+                "subtotal": item.subtotal,
+            }
+            for item in order.items
+        ],
+        "subtotal": order.subtotal,
+        "shipping_fee": order.shipping_fee,
+        "discount_amount": order.discount_amount,
+        "total_amount": order.total_amount,
+        "final_amount": order.final_amount,
+    }
+
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
@@ -242,6 +370,7 @@ async def update_order_status(
     db: AsyncSession = Depends(get_db),
 ):
     order = await _get_order(order_id, db)
+    previous_status = order.status
     workflow = [
         OrderStatus.PLACED,
         OrderStatus.UNDER_REVIEW,
@@ -257,4 +386,7 @@ async def update_order_status(
 
     order.status = payload.status
     await db.commit()
-    return await _get_order(order_id, db)
+    order = await _get_order(order_id, db)
+    if previous_status != order.status:
+        await notify_order_status_updated(order, previous_status)
+    return order

@@ -20,6 +20,8 @@ export default function NewProductPage() {
     description: "",
     price: "",
     mrp: "",
+    discount_type: "none",
+    discount_value: "",
     fabric: "",
     category_id: "",
     occasion: "",
@@ -131,6 +133,34 @@ export default function NewProductPage() {
       return;
     }
 
+    const referencePrice = Number(form.mrp || form.price);
+    const discountValue = Number(form.discount_value);
+    if (
+      form.discount_type !== "none" &&
+      !form.discount_value.trim()
+    ) {
+      setError("Enter a discount value.");
+      return;
+    }
+    if (
+      form.discount_type === "percentage" &&
+      (!Number.isFinite(discountValue) ||
+        discountValue < 0 ||
+        discountValue >= 100)
+    ) {
+      setError("Enter a discount percentage from 0 up to, but not including, 100.");
+      return;
+    }
+    if (
+      form.discount_type === "fixed_price" &&
+      (!Number.isFinite(discountValue) ||
+        discountValue <= 0 ||
+        discountValue > referencePrice)
+    ) {
+      setError("The sale price must be greater than zero and no higher than the original price.");
+      return;
+    }
+
     if (!form.fabric.trim()) {
       setError("Please enter the fabric.");
       return;
@@ -147,6 +177,11 @@ export default function NewProductPage() {
           description: form.description.trim() || null,
           price: Number(form.price),
           mrp: form.mrp ? Number(form.mrp) : null,
+          discount_type: form.discount_type,
+          discount_value:
+            form.discount_type === "none"
+              ? null
+              : discountValue,
           fabric: form.fabric.trim(),
           occasion: form.occasion || null,
           is_active: true,
@@ -377,6 +412,62 @@ export default function NewProductPage() {
                   />
                 </div>
               </div>
+
+              <div className="product-form-two-column">
+                <div className="product-form-group">
+                  <label htmlFor="discount_type">
+                    Individual Discount
+                  </label>
+                  <select
+                    id="discount_type"
+                    name="discount_type"
+                    value={form.discount_type}
+                    onChange={(event) =>
+                      setForm((previous) => ({
+                        ...previous,
+                        discount_type: event.target.value,
+                        discount_value: "",
+                      }))
+                    }
+                  >
+                    <option value="none">No individual discount</option>
+                    <option value="percentage">Percentage discount</option>
+                    <option value="fixed_price">Fixed sale price</option>
+                  </select>
+                </div>
+                {form.discount_type !== "none" && (
+                  <div className="product-form-group">
+                    <label htmlFor="discount_value">
+                      {form.discount_type === "percentage"
+                        ? "Discount Percentage"
+                        : "Fixed Sale Price"}
+                    </label>
+                    <div className="price-input">
+                      {form.discount_type === "fixed_price" && <span>₹</span>}
+                      <input
+                        id="discount_value"
+                        name="discount_value"
+                        type="number"
+                        min={form.discount_type === "percentage" ? "0" : "0.01"}
+                        max={form.discount_type === "percentage" ? "99.99" : undefined}
+                        step={form.discount_type === "percentage" ? "0.01" : "0.01"}
+                        value={form.discount_value}
+                        onChange={handleChange}
+                        placeholder={
+                          form.discount_type === "percentage" ? "10" : "12500"
+                        }
+                        required
+                      />
+                      {form.discount_type === "percentage" && <span>%</span>}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {form.discount_type !== "none" && (
+                <p className="product-form-help">
+                  The discount is calculated from MRP when provided, otherwise from the selling price.
+                </p>
+              )}
             </div>
           </div>
 

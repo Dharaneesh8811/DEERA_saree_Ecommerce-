@@ -37,6 +37,8 @@ class CouponUpdate(BaseModel):
 class CouponResponse(CouponBase):
     id: UUID
     used_count: int
+    is_expired: bool
+    created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 

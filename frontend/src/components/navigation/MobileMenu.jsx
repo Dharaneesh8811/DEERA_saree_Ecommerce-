@@ -40,12 +40,12 @@ const navigation = [
     href: "/stores",
   },
   {
-    label: "FAQs",
-    href: "/faqs",
-  },
-  {
     label: "Contact",
     href: "/contact",
+  },
+  {
+    label: "Returns & Exchanges",
+    href: "/return-exchange",
   },
 ];
 

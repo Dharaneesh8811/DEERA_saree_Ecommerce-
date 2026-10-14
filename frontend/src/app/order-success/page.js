@@ -9,6 +9,7 @@ import { useSearchParams } from "next/navigation";
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
 
+  const orderNumber = searchParams.get("orderNumber");
   const orderId = searchParams.get("orderId");
 
   const trackOrderHref = orderId
@@ -44,19 +45,71 @@ function OrderSuccessContent() {
             through phone or WhatsApp to confirm the details.
           </p>
 
-          {/* Order ID */}
-          <div className="mx-auto mt-8 max-w-sm border border-nera-gold/25 bg-nera-white px-6 py-6">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-nera-espresso/50">
-              Order ID
-            </p>
+          {/* Premium Order Reference Card */}
+          <div className="mx-auto mt-10 w-full max-w-md overflow-hidden rounded-2xl border border-[#D8C29A]/50 bg-white shadow-[0_12px_40px_rgba(67,42,31,0.08)]">
 
-            <p className="mt-2 font-serif text-2xl text-nera-wine">
-              {orderId ? `#${orderId}` : "Order Received"}
-            </p>
+            {/* Card Header */}
+            <div className="flex items-center justify-between border-b border-[#E9DFD0] bg-[#FBF8F2] px-6 py-4">
+              <div className="text-left">
+                <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#92764C]">
+                  Deera Silks
+                </p>
+                <h2 className="mt-1 font-serif text-lg text-[#38251F]">
+                  Order Confirmation
+                </h2>
+              </div>
 
-            <p className="mt-3 text-xs text-nera-espresso/50">
-              Your order is currently under review.
-            </p>
+              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[#D8C29A]/60 bg-white text-[#92764C]">
+                <Check size={19} strokeWidth={1.5} />
+              </div>
+            </div>
+
+            {/* Order Number */}
+            <div className="px-6 pb-6 pt-7 text-center">
+              <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#8B8178]">
+                Your Order Reference
+              </p>
+
+              <p className="mt-3 break-words font-serif text-2xl font-medium tracking-wide text-[#722F3E] sm:text-3xl">
+                {orderNumber || "Order Received"}
+              </p>
+
+              <div className="mx-auto mt-4 h-px w-12 bg-[#C7A66A]" />
+
+              {/* Status */}
+              <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#D9E7D8] bg-[#F3F8F1] px-3 py-2">
+                <span className="h-2 w-2 rounded-full bg-[#56845B]" />
+                <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-[#466B49]">
+                  Awaiting Confirmation
+                </span>
+              </div>
+            </div>
+
+            {/* UUID Section */}
+            {orderId && (
+              <div className="mx-4 mb-4 rounded-xl border border-[#E9DFD0] bg-[#FBF9F5] p-4 sm:mx-5">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-[#8B8178]">
+                    Internal Order UUID
+                  </p>
+
+                  <span className="shrink-0 rounded bg-[#EDE4D5] px-2 py-1 text-[9px] uppercase tracking-wider text-[#725D43]">
+                    Reference
+                  </span>
+                </div>
+
+                <p className="mt-3 break-all font-mono text-xs leading-6 text-[#51443C]">
+                  {orderId}
+                </p>
+              </div>
+            )}
+
+            {/* Footer Note */}
+            <div className="border-t border-[#E9DFD0] px-6 py-4 text-center">
+              <p className="text-xs leading-6 text-[#8B8178]">
+                Please keep your order reference for future enquiries.
+              </p>
+            </div>
           </div>
 
           {/* Buttons */}

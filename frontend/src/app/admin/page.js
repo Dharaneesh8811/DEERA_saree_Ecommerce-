@@ -3,9 +3,80 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Boxes, Mail, ShoppingBag, Tag } from "lucide-react";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import { getAdminOrdersPage } from "@/services/orderService";
+import { getAdminMessagesPage } from "@/services/messageService";
+import { getAdminBulkOrdersPage } from "@/services/bulkOrderService";
+import { getCouponsPage } from "@/services/couponServices";
 import "./admin.css";
+
+const ACTIVITY_ICONS = {
+  order: ShoppingBag,
+  message: Mail,
+  bulk: Boxes,
+  coupon: Tag,
+};
+
+function getRecentActivity(orders, messages, bulkOrders, coupons) {
+  const entries = [
+    ...orders.map((order) => ({
+      id: `order-${order.id}`,
+      type: "order",
+      title: "Order received",
+      detail: `${order.customer_name || "Customer"} · #${String(order.id).slice(-8)} · ₹${Number(order.final_amount || order.total_amount || 0).toLocaleString("en-IN")}`,
+      timestamp: order.created_at,
+      status: formatStatus(order.status),
+      href: `/admin/orders/${order.id}`,
+    })),
+    ...messages.map((message) => ({
+      id: `message-${message.id}`,
+      type: "message",
+      title: "Customer message received",
+      detail: `${message.name || "Customer"} · ${message.subject || "No subject"}`,
+      timestamp: message.created_at,
+      status: message.status,
+      href: "/admin/messages",
+    })),
+    ...bulkOrders.map((order) => ({
+      id: `bulk-${order.id}`,
+      type: "bulk",
+      title: "Bulk order enquiry",
+      detail: `${order.customer_name || "Customer"} · ${Number(order.quantity) || 0} items`,
+      timestamp: order.created_at,
+      status: order.status,
+      href: `/admin/bulk-orders/${order.id}`,
+    })),
+    ...coupons.map((coupon) => ({
+      id: `coupon-${coupon.id}`,
+      type: "coupon",
+      title: "Coupon created",
+      detail: `${coupon.code} · ${coupon.discount_type === "percentage" ? `${coupon.discount_value}% off` : `₹${coupon.discount_value} off`}`,
+      timestamp: coupon.created_at,
+      status: !coupon.is_active ? "Inactive" : coupon.is_expired ? "Expired" : "Active",
+      href: "/admin/coupons",
+    })),
+  ];
+
+  return entries
+    .sort((a, b) => {
+      const timeA = new Date(a.timestamp).getTime();
+      const timeB = new Date(b.timestamp).getTime();
+      return (Number.isFinite(timeB) ? timeB : 0) - (Number.isFinite(timeA) ? timeA : 0);
+    })
+    .slice(0, 8);
+}
+
+function formatActivityDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Date unavailable"
+    : date.toLocaleString("en-IN", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+}
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -16,6 +87,9 @@ export default function AdminDashboard() {
   const [coupons, setCoupons] = useState([]);
 
   const [loading, setLoading] = useState(true);
+  const [activity, setActivity] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(true);
+  const [activityError, setActivityError] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem("dera_admin_token");
@@ -40,60 +114,81 @@ export default function AdminDashboard() {
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
-        const [productsResponse, ordersResponse, couponsResponse] =
-          await Promise.all([
-            fetch(`${apiUrl}/api/products`),
+        const [
+          productsResponse,
+          ordersResponse,
+          couponsResponse,
+        ] = await Promise.all([
+          fetch(`${apiUrl}/api/products`),
 
-            fetch(`${apiUrl}/api/admin/orders`, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }),
+          fetch(`${apiUrl}/api/admin/orders`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
 
-            fetch(`${apiUrl}/api/coupons/`, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }),
-          ]);
+          fetch(`${apiUrl}/api/coupons/`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+        ]);
 
-        /* PRODUCTS */
+        /* =========================
+           PRODUCTS
+        ========================= */
 
         if (productsResponse.ok) {
-          const productsData = await productsResponse.json();
+          const productsData =
+            await productsResponse.json();
 
           setProducts(
-            Array.isArray(productsData) ? productsData : []
+            Array.isArray(productsData)
+              ? productsData
+              : []
           );
         } else {
           setProducts([]);
         }
 
-        /* ORDERS */
+        /* =========================
+           ORDERS
+        ========================= */
 
         if (ordersResponse.ok) {
-          const ordersData = await ordersResponse.json();
+          const ordersData =
+            await ordersResponse.json();
 
           setOrders(
-            Array.isArray(ordersData) ? ordersData : []
+            Array.isArray(ordersData)
+              ? ordersData
+              : []
           );
         } else {
           setOrders([]);
         }
 
-        /* COUPONS */
+        /* =========================
+           COUPONS
+        ========================= */
 
         if (couponsResponse.ok) {
-          const couponsData = await couponsResponse.json();
+          const couponsData =
+            await couponsResponse.json();
 
           setCoupons(
-            Array.isArray(couponsData) ? couponsData : []
+            Array.isArray(couponsData)
+              ? couponsData
+              : []
           );
         } else {
           setCoupons([]);
         }
       } catch (error) {
-        console.error("Dashboard loading error:", error);
+        console.error(
+          "Dashboard loading error:",
+          error
+        );
 
         setProducts([]);
         setOrders([]);
@@ -103,7 +198,39 @@ export default function AdminDashboard() {
       }
     }
 
+    async function loadRecentActivity() {
+      try {
+        setActivityLoading(true);
+        setActivityError("");
+        const [ordersPage, messagesPage, bulkOrdersPage, couponsPage] =
+          await Promise.all([
+            getAdminOrdersPage({ limit: 8 }),
+            getAdminMessagesPage({ limit: 8 }),
+            getAdminBulkOrdersPage({ limit: 8 }),
+            getCouponsPage({ limit: 8 }),
+          ]);
+
+        setActivity(
+          getRecentActivity(
+            ordersPage.items || [],
+            messagesPage.items || [],
+            bulkOrdersPage.items || [],
+            couponsPage.items || []
+          )
+        );
+      } catch (error) {
+        setActivityError(
+          error.userMessage ||
+            error.response?.data?.detail ||
+            "Unable to load recent activity. Please try again."
+        );
+      } finally {
+        setActivityLoading(false);
+      }
+    }
+
     loadDashboard();
+    loadRecentActivity();
   }, [router]);
 
   /* =========================
@@ -135,14 +262,6 @@ export default function AdminDashboard() {
         total + Number(order.final_amount || 0),
       0
     );
-
-  const recentOrders = [...orders]
-    .sort(
-      (a, b) =>
-        new Date(b.created_at) -
-        new Date(a.created_at)
-    )
-    .slice(0, 5);
 
   return (
     <div className="admin-layout">
@@ -233,7 +352,9 @@ export default function AdminDashboard() {
 
         <section className="admin-dashboard-grid">
 
-          {/* QUICK ACTIONS */}
+          {/* =========================
+              QUICK ACTIONS
+          ========================= */}
 
           <div className="admin-card admin-panel">
 
@@ -270,10 +391,19 @@ export default function AdminDashboard() {
                 description="Create and manage discounts"
               />
 
+              <QuickAction
+                href="/admin/hero-slides"
+                icon="▧"
+                title="Manage Hero Image"
+                description="Update the homepage hero image"
+              />
+
             </div>
           </div>
 
-          {/* STORE OVERVIEW */}
+          {/* =========================
+              STORE OVERVIEW
+          ========================= */}
 
           <div className="admin-card admin-panel">
 
@@ -337,93 +467,86 @@ export default function AdminDashboard() {
               <h2>Recent Activity</h2>
 
               <p>
-                Latest orders received by your
-                store.
+                The latest orders, messages, bulk enquiries and coupons.
               </p>
             </div>
 
-            {recentOrders.length > 0 && (
-              <Link
-                href="/admin/orders"
-                className="admin-panel-link"
-              >
-                View All
-              </Link>
-            )}
-
-          </div>
-
-          {loading ? (
-            <div className="admin-empty-activity">
-
-              <div className="admin-empty-icon">
-                ◷
-              </div>
-
-              <h3>Loading activity...</h3>
+              {activity.length > 0 && (
+                <Link
+                  href="/admin/orders"
+                  className="admin-panel-link"
+                >
+                  View Orders
+                </Link>
+              )}
 
             </div>
-          ) : recentOrders.length === 0 ? (
+
+            {activityLoading ? (
+              <div className="admin-empty-activity">
+
+              <div className="admin-empty-icon">
+                ◷
+              </div>
+
+              <h3>
+                Loading recent activity...
+              </h3>
+
+            </div>
+          ) : activityError ? (
+            <div className="admin-empty-activity" role="alert">
+              <div className="admin-empty-icon">!</div>
+              <h3>Activity could not be loaded</h3>
+              <p>{activityError}</p>
+            </div>
+          ) : activity.length === 0 ? (
             <div className="admin-empty-activity">
 
               <div className="admin-empty-icon">
                 ◷
               </div>
 
-              <h3>No recent activity</h3>
+              <h3>
+                No recent activity
+              </h3>
 
               <p>
-                Once you receive orders, they
-                will appear here.
+                New store activity will appear here as it happens.
               </p>
 
             </div>
           ) : (
-            <div className="admin-recent-orders">
+            <div className="admin-activity-list">
 
-              {recentOrders.map((order) => (
+              {activity.map((item) => {
+                const Icon = ACTIVITY_ICONS[item.type];
+                return (
                 <Link
-                  key={order.id}
-                  href={`/admin/orders/${order.id}`}
-                  className="admin-recent-order"
+                  key={item.id}
+                  href={item.href}
+                  className="admin-activity-item"
                 >
-
-                  <div className="admin-recent-order-main">
-
-                    <strong>
-                      {order.customer_name}
-                    </strong>
-
-                    <span>
-                      Order #
-                      {order.id.slice(-8)}
-                    </span>
-
+                  <span className={`admin-activity-icon admin-activity-icon-${item.type}`}>
+                    <Icon size={17} aria-hidden="true" />
+                  </span>
+                  <div className="admin-activity-content">
+                    <strong>{item.title}</strong>
+                    <span>{item.detail}</span>
                   </div>
-
-                  <div className="admin-recent-order-meta">
-
-                    <strong>
-                      ₹
-                      {Number(
-                        order.final_amount || 0
-                      ).toLocaleString(
-                        "en-IN"
-                      )}
-                    </strong>
-
-                    <span
-                      className={`admin-order-status status-${order.status}`}
-                    >
-                      {formatStatus(
-                        order.status
-                      )}
-                    </span>
-
+                  <div className="admin-activity-meta">
+                    {item.status && (
+                      <span className={`admin-activity-status status-${item.status.toLowerCase().replaceAll(" ", "-")}`}>
+                        {item.status}
+                      </span>
+                    )}
+                    <time dateTime={item.timestamp}>
+                      {formatActivityDate(item.timestamp)}
+                    </time>
                   </div>
-
                 </Link>
-              ))}
+                );
+              })}
 
             </div>
           )}

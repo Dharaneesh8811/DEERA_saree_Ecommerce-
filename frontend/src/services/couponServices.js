@@ -5,6 +5,13 @@ export async function getCoupons() {
   return response.data;
 }
 
+export async function getCouponsPage({ offset = 0, limit = 10 } = {}) {
+  const response = await api.get("/api/coupons/page", {
+    params: { offset, limit },
+  });
+  return response.data;
+}
+
 export async function getCoupon(couponId) {
   const response = await api.get(`/api/coupons/${couponId}`);
   return response.data;

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import { MessageSquare } from "lucide-react";
 
 export default function AdminSidebar() {
   const pathname = usePathname();
@@ -50,6 +51,16 @@ export default function AdminSidebar() {
       name: "Orders",
       href: "/admin/orders",
       icon: "◫",
+    },
+    {
+      name: "Messages",
+      href: "/admin/messages",
+      icon: <MessageSquare size={17} aria-hidden="true" />,
+    },
+    {
+      name: "Hero Image",
+      href: "/admin/hero-slides",
+      icon: "▧",
     },
     {
       name: "Bulk Orders",

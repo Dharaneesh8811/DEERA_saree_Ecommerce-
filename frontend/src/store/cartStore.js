@@ -55,6 +55,31 @@ export const useCartStore = create(
           ),
         })),
 
+      refreshCartPrices: (products) =>
+        set((state) => {
+          const productsById = new Map(
+            products.map((product) => [String(product.id), product])
+          );
+
+          return {
+            cartItems: state.cartItems.map((item) => {
+              const product = productsById.get(String(item.id));
+              if (!product) return item;
+
+              return {
+                ...item,
+                price: Number(product.price),
+                sellingPrice: Number(product.price),
+                mrp: product.mrp == null ? null : Number(product.mrp),
+                discount_percentage:
+                  product.discount_percentage == null
+                    ? null
+                    : Number(product.discount_percentage),
+              };
+            }),
+          };
+        }),
+
       clearCart: () =>
         set({
           cartItems: [],

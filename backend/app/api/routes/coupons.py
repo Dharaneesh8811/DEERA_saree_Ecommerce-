@@ -1,7 +1,7 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.dependencies import get_db
@@ -15,6 +15,7 @@ from app.schemas.coupon import (
     CouponResponse,
     CouponUpdate,
 )
+from app.schemas.pagination import PageResponse
 
 router = APIRouter(
     prefix="/api/coupons",
@@ -87,6 +88,27 @@ async def get_coupons(
     )
 
     return result.scalars().all()
+
+
+@router.get(
+    "/page",
+    response_model=PageResponse[CouponResponse],
+)
+async def get_coupons_page(
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    _admin=Depends(get_current_admin),
+):
+    total = await db.scalar(select(func.count()).select_from(Coupon))
+    result = await db.execute(
+        select(Coupon)
+        .order_by(Coupon.created_at.desc(), Coupon.id.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+
+    return {"items": result.scalars().all(), "total": total or 0}
 
 
 # ---------------------------------------------------------

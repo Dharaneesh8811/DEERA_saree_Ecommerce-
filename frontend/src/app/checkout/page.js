@@ -9,12 +9,46 @@ import {
   Tag,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCartStore } from "@/store/cartStore";
 import { applyCoupon } from "@/services/couponServices";
+import { getProducts } from "@/services/productService";
 
 export default function CheckoutPage() {
   const cartItems = useCartStore((state) => state.cartItems);
+  const refreshCartPrices = useCartStore((state) => state.refreshCartPrices);
+  const [priceRefreshing, setPriceRefreshing] = useState(true);
+  const [priceRefreshError, setPriceRefreshError] = useState("");
+  const [priceRefreshAttempt, setPriceRefreshAttempt] = useState(0);
+
+  useEffect(() => {
+    if (cartItems.length === 0) {
+      setPriceRefreshing(false);
+      return undefined;
+    }
+
+    let current = true;
+    setPriceRefreshing(true);
+    setPriceRefreshError("");
+    getProducts()
+      .then((products) => {
+        if (current) refreshCartPrices(products);
+      })
+      .catch(() => {
+        if (current) {
+          setPriceRefreshError(
+            "Current prices could not be verified. Please retry before placing your order."
+          );
+        }
+      })
+      .finally(() => {
+        if (current) setPriceRefreshing(false);
+      });
+
+    return () => {
+      current = false;
+    };
+  }, [cartItems.length, refreshCartPrices, priceRefreshAttempt]);
 
   const subtotal = useMemo(
     () =>
@@ -111,6 +145,11 @@ export default function CheckoutPage() {
   -------------------------------- */
 
   const handleApplyCoupon = async () => {
+    if (priceRefreshing || priceRefreshError) {
+      setCouponError("Verify current product prices before applying a coupon.");
+      return;
+    }
+
     const code = couponCode.trim().toUpperCase();
 
     if (!code) {
@@ -172,91 +211,99 @@ export default function CheckoutPage() {
   -------------------------------- */
 
   const handleSubmit = async (event) => {
-    event.preventDefault();
+      event.preventDefault();
 
-    if (!validateForm()) return;
+      if (!validateForm()) return;
 
-    try {
-      setPlacingOrder(true);
+      if (cartItems.length === 0) {
+        alert("Your cart is empty.");
+        return;
+      }
 
-      const orderData = {
-        customer_name: form.name,
-        customer_phone: form.phone,
-        customer_email: form.email || null,
+      if (priceRefreshing || priceRefreshError) {
+        alert(priceRefreshError || "Please wait while we verify current prices.");
+        return;
+      }
 
-        shipping_address_line1: form.address,
-        shipping_address_line2: null,
-        shipping_city: form.city,
-        shipping_state: form.state,
-        shipping_postal_code: form.pincode,
-        shipping_country: "India",
+      const apiUrl = (
+        process.env.NEXT_PUBLIC_API_URL || ""
+      ).replace(/\/$/, "");
 
-        items: cartItems.map((item) => ({
-          product_id: item.id,
-          quantity: item.quantity,
-          unit_price: item.price,
-          subtotal: item.price * item.quantity,
-        })),
-      };
+      if (!apiUrl) {
+        alert("Checkout configuration is missing. Please try again later.");
+        return;
+      }
 
-      console.log("Sending order:", orderData);
+      try {
+        setPlacingOrder(true);
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/orders/`,
-        {
+        const orderData = {
+          customer_name: form.name.trim(),
+          customer_phone: form.phone.trim(),
+          customer_email: form.email.trim() || null,
+
+          shipping_address_line1: form.address.trim(),
+          shipping_address_line2: null,
+          shipping_city: form.city.trim(),
+          shipping_state: form.state.trim(),
+          shipping_postal_code: form.pincode.trim(),
+          shipping_country: "India",
+
+          coupon_code: appliedCoupon?.code || null,
+
+          items: cartItems.map((item) => ({
+            product_id: item.id,
+            quantity: item.quantity,
+          })),
+        };
+
+        const response = await fetch(`${apiUrl}/api/orders/`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(orderData),
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          const detail = Array.isArray(data.detail)
+            ? data.detail
+                .map((error) => error.msg)
+                .join(", ")
+            : data.detail;
+
+          throw new Error(
+            detail || "Unable to place your order. Please try again."
+          );
         }
-      );
 
-      const data = await response.json();
+        if (!data.id || !data.order_number) {
+          console.error("Unexpected order response:", data);
 
-      console.log("Order response:", data);
+          throw new Error(
+            "Your order response is missing its reference number. Please contact our team before trying again."
+          );
+        }
 
-      if (!response.ok) {
-        console.error("Order creation failed:", data);
+        // Keep the readable order number and internal UUID separate.
+        const successUrl =
+          `/order-success?orderNumber=${encodeURIComponent(data.order_number)}` +
+          `&orderId=${encodeURIComponent(data.id)}`;
 
-        alert(
-          data.detail ||
-            "Unable to place order. Please try again."
-        );
-
-        return;
-      }
-
-      const orderId =
-        data.order_number ||
-        data.order_id ||
-        data.id;
-
-      if (!orderId) {
-        console.error(
-          "Backend did not return an order ID:",
-          data
-        );
+        window.location.assign(successUrl);
+      } catch (error) {
+        console.error("Order submission error:", error);
 
         alert(
-          "Order was created, but the order ID was not returned."
+          error.message ||
+            "Unable to connect to the server. Please try again."
         );
-
-        return;
+      } finally {
+        setPlacingOrder(false);
       }
-
-      window.location.href =
-        `/order-success?orderId=${orderId}`;
-    } catch (error) {
-      console.error("Order submission error:", error);
-
-      alert(
-        "Unable to connect to the server. Please try again."
-      );
-    } finally {
-      setPlacingOrder(false);
-    }
-  };
+    };
 
   /* --------------------------------
      EMPTY CART
@@ -315,6 +362,27 @@ export default function CheckoutPage() {
             your saree availability and order.
           </p>
         </div>
+
+        {priceRefreshing && (
+          <p className="mb-5 text-xs text-nera-espresso/60" role="status">
+            Refreshing current product prices...
+          </p>
+        )}
+        {priceRefreshError && (
+          <div
+            className="mb-5 flex flex-wrap items-center justify-between gap-3 border border-nera-wine/20 bg-nera-white px-4 py-3 text-xs text-nera-wine"
+            role="alert"
+          >
+            <span>{priceRefreshError}</span>
+            <button
+              type="button"
+              className="underline underline-offset-2"
+              onClick={() => setPriceRefreshAttempt((attempt) => attempt + 1)}
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_380px]">
 
@@ -531,7 +599,11 @@ export default function CheckoutPage() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={placingOrder}
+              disabled={
+                placingOrder ||
+                priceRefreshing ||
+                Boolean(priceRefreshError)
+              }
               className="flex w-full items-center justify-center gap-3 bg-nera-wine px-5 py-4 text-xs font-medium uppercase tracking-[0.16em] text-nera-white transition hover:bg-nera-espresso disabled:cursor-not-allowed disabled:opacity-60"
             >
               {placingOrder
@@ -648,6 +720,8 @@ export default function CheckoutPage() {
                         onClick={handleApplyCoupon}
                         disabled={
                           couponLoading ||
+                          priceRefreshing ||
+                          Boolean(priceRefreshError) ||
                           !couponCode.trim()
                         }
                         className="h-11 shrink-0 bg-nera-wine px-4 text-[9px] uppercase tracking-[0.12em] text-white transition hover:bg-nera-espresso disabled:cursor-not-allowed disabled:opacity-50"

@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum, Numeric, String, Text
+from sqlalchemy import Enum, Numeric, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDMixin, TimestampMixin
@@ -116,4 +116,12 @@ class Order(UUIDMixin, TimestampMixin, Base):
         "OrderItem",
         back_populates="order",
         cascade="all, delete-orphan",
+    )
+    order_number: Mapped[str] = mapped_column(
+        String(40),
+        unique=True,
+        nullable=False,
+        server_default=__import__("sqlalchemy").text(
+            "'DEERA ORDER-' || nextval('deera_order_number_seq')"
+        ),
     )

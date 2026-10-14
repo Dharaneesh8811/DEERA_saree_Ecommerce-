@@ -2,19 +2,38 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ProductCreate(BaseModel):
     name: str
     category_id: UUID
-    price: Decimal
+    price: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
 
     description: str | None = None
-    mrp: Decimal | None = None
-    discount_percentage: Decimal | None = None
+    mrp: Decimal | None = Field(
+        default=None,
+        gt=0,
+        max_digits=12,
+        decimal_places=2,
+    )
+    discount_percentage: Decimal | None = Field(
+        default=None,
+        ge=0,
+        lt=100,
+        max_digits=5,
+        decimal_places=2,
+    )
+    discount_type: Literal["none", "percentage", "fixed_price"] | None = None
+    discount_value: Decimal | None = Field(
+        default=None,
+        ge=0,
+        max_digits=12,
+        decimal_places=2,
+    )
     color: str | None = None
     occasion: str | None = None
     fabric_weight: str | None = None
@@ -35,11 +54,34 @@ class ProductCreate(BaseModel):
 class ProductUpdate(BaseModel):
     name: str | None = None
     category_id: UUID | None = None
-    price: Decimal | None = None
+    price: Decimal | None = Field(
+        default=None,
+        gt=0,
+        max_digits=12,
+        decimal_places=2,
+    )
 
     description: str | None = None
-    mrp: Decimal | None = None
-    discount_percentage: Decimal | None = None
+    mrp: Decimal | None = Field(
+        default=None,
+        gt=0,
+        max_digits=12,
+        decimal_places=2,
+    )
+    discount_percentage: Decimal | None = Field(
+        default=None,
+        ge=0,
+        lt=100,
+        max_digits=5,
+        decimal_places=2,
+    )
+    discount_type: Literal["none", "percentage", "fixed_price"] | None = None
+    discount_value: Decimal | None = Field(
+        default=None,
+        ge=0,
+        max_digits=12,
+        decimal_places=2,
+    )
     color: str | None = None
     occasion: str | None = None
     fabric_weight: str | None = None
@@ -69,6 +111,7 @@ class ProductResponse(BaseModel):
     price: Decimal
     mrp: Decimal | None = None
     discount_percentage: Decimal | None = None
+    discount_type: Literal["none", "percentage", "fixed_price"]
     color: str | None = None
     occasion: str | None = None
     fabric_weight: str | None = None

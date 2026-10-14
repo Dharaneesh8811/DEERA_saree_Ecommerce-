@@ -210,9 +210,27 @@ export default function SearchPage() {
 
                     {product.sellingPrice != null &&
                       Number.isFinite(Number(product.sellingPrice)) && (
-                      <p className="mt-2 text-sm font-medium text-nera-wine">
-                        ₹{Number(product.sellingPrice).toLocaleString("en-IN")}
-                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-nera-wine">
+                          ₹{Number(product.sellingPrice).toLocaleString("en-IN")}
+                        </span>
+                        {product.mrp != null &&
+                          Number(product.mrp) > Number(product.sellingPrice) && (
+                            <>
+                              <span className="text-xs text-nera-espresso/40 line-through">
+                                ₹{Number(product.mrp).toLocaleString("en-IN")}
+                              </span>
+                              <span className="text-[9px] font-medium uppercase tracking-[0.1em] text-nera-gold">
+                                {Math.round(
+                                  ((Number(product.mrp) - Number(product.sellingPrice)) /
+                                    Number(product.mrp)) *
+                                    100
+                                )}
+                                % off
+                              </span>
+                            </>
+                          )}
+                      </div>
                     )}
                   </div>
                 </Link>

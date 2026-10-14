@@ -77,6 +77,7 @@ class OrderItemsUpdate(BaseModel):
 class OrderResponse(BaseModel):
     id: UUID
 
+    order_number: str
     customer_name: str
     customer_phone: str
     customer_email: str | None

@@ -1,21 +1,26 @@
+
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { getOrder, getOrdersByPhone } from "@/services/orderService";
-import { getProductImages } from "@/services/productImageService";
 import {
   ArrowLeft,
   ArrowRight,
   Check,
   Clock3,
+  MessageCircle,
   Package,
   Search,
   Truck,
-  MessageCircle,
 } from "lucide-react";
-import { Suspense, useState } from "react";
+
+import {
+  getOrderByNumber,
+  getOrdersByPhone,
+  trackOrder,
+} from "@/services/orderService";
+import { getProductImages } from "@/services/productImageService";
 
 const statusSteps = [
   {
@@ -44,15 +49,23 @@ const statusSteps = [
   },
 ];
 
+const isFriendlyOrderNumber = (value) =>
+  /^DEERA ORDER-\d+$/i.test(value);
+
+const isUuid = (value) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value
+  );
+
 function OrderStatusContent() {
   const searchParams = useSearchParams();
+  const urlOrderNumber = searchParams.get("orderNumber") || "";
 
-  const urlOrderId = searchParams.get("orderId") || "";
-
-  const [orderId, setOrderId] = useState(urlOrderId);
+  const [orderNumber, setOrderNumber] = useState(urlOrderNumber);
   const [phone, setPhone] = useState("");
   const [searched, setSearched] = useState(false);
   const [order, setOrder] = useState(null);
+  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [productImages, setProductImages] = useState({});
@@ -63,8 +76,13 @@ function OrderStatusContent() {
     (step) => step.key === currentStatus
   );
 
-   useEffect(() => {
-    if (!order?.items?.length) return;
+  useEffect(() => {
+    if (!order?.items?.length) {
+      setProductImages({});
+      return;
+    }
+
+    let cancelled = false;
 
     async function loadProductImages() {
       const imageMap = {};
@@ -80,77 +98,172 @@ function OrderStatusContent() {
               const primaryImage =
                 images.find((image) => image.is_primary) || images[0];
 
-              imageMap[item.product_id] = primaryImage?.image_url || null;
+              imageMap[item.product_id] =
+                primaryImage?.image_url || null;
             }
-          } catch (error) {
+          } catch (imageError) {
             console.error(
               `Failed to load image for product ${item.product_id}`,
-              error
+              imageError
             );
           }
         })
       );
 
-      setProductImages(imageMap);
+      if (!cancelled) {
+        setProductImages(imageMap);
+      }
     }
 
     loadProductImages();
-  }, [order]);
 
+    return () => {
+      cancelled = true;
+    };
+  }, [order]);
 
   const handleSearch = async (event) => {
     event.preventDefault();
 
     setError("");
     setOrder(null);
+    setOrders([]);
+    setSearched(false);
+    setProductImages({});
 
-    if (!orderId.trim() && !phone.trim()) {
-      setError("Please enter your order ID or phone number.");
+    const reference = orderNumber.trim();
+    const registeredPhone = phone.trim();
+
+    const friendlyReference = isFriendlyOrderNumber(reference);
+    const uuidReference = isUuid(reference);
+
+    if (!reference && !registeredPhone) {
+      setError("Enter your order reference or mobile number.");
       return;
     }
 
-    if (phone && !/^[6-9]\d{9}$/.test(phone)) {
-      setError("Please enter a valid 10-digit phone number.");
+    if (reference && !friendlyReference && !uuidReference) {
+      setError("Enter DEERA ORDER-10 or a valid order UUID.");
+      return;
+    }
+
+    if (
+      registeredPhone &&
+      !/^[6-9]\d{9}$/.test(registeredPhone)
+    ) {
+      setError("Enter a valid 10-digit Indian mobile number.");
       return;
     }
 
     setLoading(true);
 
     try {
-      let data;
+      // Both fields: verify the friendly order reference and phone.
+      if (reference && registeredPhone && friendlyReference) {
+        const result = await trackOrder(
+          reference,
+          registeredPhone
+        );
 
-      if (orderId.trim()) {
-        data = await getOrder(orderId.trim());
-      } else {
-        const orders = await getOrdersByPhone(phone.trim());
+        if (!result?.id) {
+          throw new Error("Order details were not returned.");
+        }
 
-        if (!Array.isArray(orders) || orders.length === 0) {
-          setError("No orders found for this phone number.");
+        setOrder(result);
+        setSearched(true);
+        return;
+      }
+
+      // UUID and phone: verify against a phone field returned by the API.
+      if (reference && registeredPhone && uuidReference) {
+        const result = await getOrderByNumber(reference);
+
+        if (!result?.id) {
+          throw new Error("Order details were not returned.");
+        }
+
+        const returnedPhone =
+          result?.phone ??
+          result?.customer_phone ??
+          result?.shipping_phone ??
+          result?.phone_number;
+
+        if (
+          !returnedPhone ||
+          String(returnedPhone).replace(/\D/g, "").slice(-10) !==
+            registeredPhone
+        ) {
+          setError(
+            "The order UUID and mobile number could not be verified together. Try the DEERA ORDER number with your mobile number, or search using either field alone."
+          );
           return;
         }
 
-        data = orders[0];
+        setOrder(result);
+        setSearched(true);
+        return;
       }
 
-      setOrder(data);
-      setSearched(true);
-    } catch (requestError) {
-      const status = requestError.response?.status;
+      // Reference only: friendly order number or UUID.
+      if (reference) {
+        const result = await getOrderByNumber(reference);
 
-      if (status === 404) {
+        if (!result?.id) {
+          throw new Error("Order details were not returned.");
+        }
+
+        setOrder(result);
+        setSearched(true);
+        return;
+      }
+
+      // Phone only: retrieve all matching orders.
+      const result = await getOrdersByPhone(registeredPhone);
+
+      if (!Array.isArray(result) || result.length === 0) {
+        setError("No orders found for this mobile number.");
+        return;
+      }
+
+      setOrders(result);
+
+      if (result.length === 1) {
+        setOrder(result[0]);
+        setSearched(true);
+      }
+    } catch (requestError) {
+      if (requestError.response?.status === 404) {
         setError(
-          "Order not found. Please check your order ID or phone number."
+          "No matching order was found. Please check your details."
         );
-      } else if (status === 422) {
-        setError("Please enter valid order details.");
-      } else if (requestError.request && !requestError.response) {
-        setError("Unable to connect to the server. Please try again.");
+      } else if (requestError.response?.status === 422) {
+        setError(
+          "Please check your order reference or mobile number."
+        );
+      } else if (
+        requestError.request &&
+        !requestError.response
+      ) {
+        setError(
+          "Unable to connect to the server. Please try again."
+        );
       } else {
-        setError("Unable to find your order. Please try again.");
+        setError(
+          requestError.response?.data?.detail ||
+            requestError.message ||
+            "Unable to find your order."
+        );
       }
     } finally {
       setLoading(false);
     }
+  };
+
+  const selectOrder = (selectedOrder) => {
+    setOrder(selectedOrder);
+    setSearched(true);
+    setError("");
+    setProductImages({});
   };
 
   return (
@@ -174,8 +287,8 @@ function OrderStatusContent() {
           </h1>
 
           <p className="mt-4 text-sm leading-7 text-nera-espresso/55">
-            Enter your order ID or phone number to check the current status of
-            your Deera Silk order.
+            Enter your order reference, order UUID, or registered
+            mobile number to check your Deera Silks order.
           </p>
         </div>
 
@@ -191,7 +304,8 @@ function OrderStatusContent() {
               </h2>
 
               <p className="mt-1 text-xs text-nera-espresso/45">
-                Use either your order ID or registered phone number.
+                Enter your order reference or mobile number.
+                You can enter both to verify your order.
               </p>
             </div>
           </div>
@@ -200,15 +314,18 @@ function OrderStatusContent() {
             <div className="grid gap-5 md:grid-cols-2">
               <div>
                 <label className="mb-2 block text-[10px] uppercase tracking-[0.12em] text-nera-espresso/55">
-                  Order ID
+                  Order Reference / UUID
                 </label>
 
                 <input
                   type="text"
-                  value={orderId}
-                  onChange={(event) => setOrderId(event.target.value)}
-                  placeholder="Example: NERA-943424"
-                  className="h-12 w-full border border-nera-gold/25 bg-nera-ivory px-4 text-sm uppercase outline-none transition focus:border-nera-wine"
+                  value={orderNumber}
+                  onChange={(event) =>
+                    setOrderNumber(event.target.value)
+                  }
+                  placeholder="DEERA ORDER-XXX or Order UUID"
+                  autoComplete="off"
+                  className="h-12 w-full border border-nera-gold/25 bg-nera-ivory px-4 text-sm outline-none transition focus:border-nera-wine"
                 />
               </div>
 
@@ -221,22 +338,32 @@ function OrderStatusContent() {
                   type="tel"
                   inputMode="numeric"
                   maxLength={10}
+                  autoComplete="tel"
                   value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  placeholder="10-digit mobile number"
+                  onChange={(event) =>
+                    setPhone(
+                      event.target.value.replace(/\D/g, "").slice(0, 10)
+                    )
+                  }
+                  placeholder="Registered mobile number"
                   className="h-12 w-full border border-nera-gold/25 bg-nera-ivory px-4 text-sm outline-none transition focus:border-nera-wine"
                 />
               </div>
             </div>
 
             {error && (
-              <p className="mt-3 text-xs text-nera-wine">{error}</p>
+              <p
+                role="alert"
+                className="mt-3 text-xs leading-5 text-nera-wine"
+              >
+                {error}
+              </p>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 bg-nera-wine px-7 text-xs font-medium uppercase tracking-[0.14em] text-nera-white transition hover:bg-nera-espresso"
+              className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 bg-nera-wine px-7 text-xs font-medium uppercase tracking-[0.14em] text-nera-white transition hover:bg-nera-espresso disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? "Finding Order..." : "Track Order"}
               <ArrowRight size={16} strokeWidth={1.5} />
@@ -244,7 +371,67 @@ function OrderStatusContent() {
           </form>
         </section>
 
-        {searched && (
+        {orders.length > 1 && !order && (
+          <section className="mt-10 border border-nera-gold/20 bg-nera-white p-5 sm:p-7">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-nera-gold">
+              Your orders
+            </p>
+
+            <h2 className="mt-2 font-serif text-2xl text-nera-wine">
+              Select an order to track
+            </h2>
+
+            <p className="mt-2 text-xs leading-6 text-nera-espresso/50">
+              We found multiple orders associated with this mobile number.
+            </p>
+
+            <div className="mt-6 space-y-3">
+              {orders.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => selectOrder(item)}
+                  className="flex w-full items-center justify-between gap-4 border border-nera-gold/20 p-4 text-left transition hover:border-nera-wine hover:bg-nera-sand/30"
+                >
+                  <div className="min-w-0">
+                    <p className="break-words font-serif text-lg text-nera-wine">
+                      {item.order_number || "Order"}
+                    </p>
+
+                    <p className="mt-2 text-xs text-nera-espresso/50">
+                      Status:{" "}
+                      {item.status
+                        ? item.status.replaceAll("_", " ").toUpperCase()
+                        : "UNKNOWN"}
+                    </p>
+
+                    {item.created_at && (
+                      <p className="mt-1 text-xs text-nera-espresso/40">
+                        Date:{" "}
+                        {new Date(item.created_at).toLocaleDateString("en-IN")}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="shrink-0 text-right">
+                    <p className="font-serif text-lg text-nera-wine">
+                      ₹
+                      {Number(
+                        item.final_amount ?? item.total_amount ?? 0
+                      ).toLocaleString("en-IN")}
+                    </p>
+
+                    <span className="mt-2 inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] text-nera-wine">
+                      Track <ArrowRight size={13} />
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {searched && order && (
           <section className="mt-10">
             <div className="border border-nera-gold/20 bg-nera-white">
               <div className="flex flex-col gap-5 border-b border-nera-gold/15 px-5 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-7">
@@ -253,16 +440,22 @@ function OrderStatusContent() {
                     Order details
                   </p>
 
-                  <h2 className="mt-2 font-serif text-2xl text-nera-wine">
-                    {order?.id || orderId || "DEERA-ORDER"}
+                  <h2 className="mt-2 break-words font-serif text-2xl text-nera-wine">
+                    {order.order_number || orderNumber || "Your order"}
                   </h2>
+
+                  {order.id && (
+                    <p className="mt-2 break-all font-mono text-[10px] leading-5 text-nera-espresso/45">
+                      UUID: {order.id}
+                    </p>
+                  )}
                 </div>
 
                 <div className="inline-flex w-fit items-center gap-2 border border-nera-gold/25 bg-nera-sand/50 px-4 py-2">
                   <span className="h-2 w-2 rounded-full bg-nera-gold" />
 
                   <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-nera-wine">
-                    {order?.status
+                    {order.status
                       ? order.status.replaceAll("_", " ").toUpperCase()
                       : "Unknown"}
                   </span>
@@ -274,18 +467,25 @@ function OrderStatusContent() {
                   Order progress
                 </p>
 
+                {currentStatusIndex === -1 && (
+                  <p className="mt-4 text-xs leading-6 text-nera-espresso/50">
+                    Your order has been found. Its current status is shown
+                    above; progress steps update when the status matches
+                    one of the stages below.
+                  </p>
+                )}
+
                 <div className="mt-8">
                   {statusSteps.map((step, index) => {
                     const Icon = step.icon;
-                    const isCompleted = index <= currentStatusIndex;
+                    const isCompleted =
+                      currentStatusIndex >= 0 &&
+                      index <= currentStatusIndex;
                     const isCurrent = index === currentStatusIndex;
                     const isLast = index === statusSteps.length - 1;
 
                     return (
-                      <div
-                        key={step.key}
-                        className="relative flex gap-5"
-                      >
+                      <div key={step.key} className="relative flex gap-5">
                         {!isLast && (
                           <div
                             className={`absolute left-[19px] top-10 h-[calc(100%-10px)] w-px ${
@@ -301,14 +501,12 @@ function OrderStatusContent() {
                             isCompleted
                               ? "border-nera-wine bg-nera-wine text-nera-white"
                               : "border-nera-gold/25 bg-nera-white text-nera-espresso/30"
-                          } ${
-                            isCurrent ? "ring-4 ring-nera-wine/10" : ""
-                          }`}
+                          } ${isCurrent ? "ring-4 ring-nera-wine/10" : ""}`}
                         >
                           <Icon size={17} strokeWidth={1.5} />
                         </div>
 
-                        <div className={`${isLast ? "" : "pb-9"}`}>
+                        <div className={isLast ? "" : "pb-9"}>
                           <p
                             className={`text-sm font-medium ${
                               isCompleted
@@ -353,9 +551,9 @@ function OrderStatusContent() {
                 </h3>
 
                 <div className="mt-6 space-y-5">
-                  {order?.items?.map((item) => (
+                  {order.items?.map((item, index) => (
                     <div
-                      key={item.id}
+                      key={item.id || `${item.product_id}-${index}`}
                       className="flex gap-4 border-b border-nera-gold/10 pb-5 last:border-b-0 last:pb-0"
                     >
                       <div className="h-24 w-20 shrink-0 overflow-hidden bg-nera-sand">
@@ -390,22 +588,26 @@ function OrderStatusContent() {
                       </div>
                     </div>
                   ))}
+
+                  {(!order.items || order.items.length === 0) && (
+                    <p className="text-xs leading-6 text-nera-espresso/50">
+                      Order items are not available in the tracking response.
+                    </p>
+                  )}
                 </div>
 
-                {order && (
-                  <div className="mt-6 flex items-center justify-between border-t border-nera-gold/15 pt-5">
-                    <span className="text-[10px] uppercase tracking-[0.12em] text-nera-espresso/50">
-                      Order total
-                    </span>
+                <div className="mt-6 flex items-center justify-between border-t border-nera-gold/15 pt-5">
+                  <span className="text-[10px] uppercase tracking-[0.12em] text-nera-espresso/50">
+                    Order total
+                  </span>
 
-                    <span className="font-serif text-xl text-nera-wine">
-                      ₹
-                      {Number(
-                        order.final_amount || order.total_amount || 0
-                      ).toLocaleString("en-IN")}
-                    </span>
-                  </div>
-                )}
+                  <span className="font-serif text-xl text-nera-wine">
+                    ₹
+                    {Number(
+                      order.final_amount ?? order.total_amount ?? 0
+                    ).toLocaleString("en-IN")}
+                  </span>
+                </div>
               </div>
 
               <div className="border border-nera-gold/20 bg-nera-sand/40 p-5 sm:p-7">

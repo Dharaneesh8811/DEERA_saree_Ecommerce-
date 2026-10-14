@@ -187,14 +187,25 @@ export default function EditorsPicks() {
                         Number(
                           product.sellingPrice
                         ) && (
-                        <span className="text-xs text-nera-espresso/40 line-through">
-                          ₹
-                          {Number(
-                            product.mrp
-                          ).toLocaleString(
-                            "en-IN"
-                          )}
-                        </span>
+                        <>
+                          <span className="text-xs text-nera-espresso/40 line-through">
+                            ₹
+                            {Number(
+                              product.mrp
+                            ).toLocaleString(
+                              "en-IN"
+                            )}
+                          </span>
+                          <span className="text-[9px] font-medium uppercase tracking-[0.1em] text-nera-gold">
+                            {Math.round(
+                              ((Number(product.mrp) -
+                                Number(product.sellingPrice)) /
+                                Number(product.mrp)) *
+                                100
+                            )}
+                            % off
+                          </span>
+                        </>
                       )}
 
                   </div>

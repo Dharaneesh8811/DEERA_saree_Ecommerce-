@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Heart, ArrowUpRight } from "lucide-react";
 import { useWishlistStore } from "@/store/wishlistStore";
+import { getActiveDiscountPercentage } from "@/utils/productDiscount";
 
 export default function ProductCard({ product }) {
   const wishlistItems = useWishlistStore(
@@ -16,6 +17,13 @@ export default function ProductCard({ product }) {
   const wishlisted = wishlistItems.some(
     (item) => item.id === product.id
   );
+  const sellingPrice = Number(product.sellingPrice ?? product.price);
+  const mrp = Number(product.mrp);
+  const discountPercentage = getActiveDiscountPercentage(product);
+  const hasDiscount =
+    Number.isFinite(sellingPrice) &&
+    Number.isFinite(mrp) &&
+    mrp > sellingPrice;
 
   const productHref =
     product.categoryId && product.id
@@ -51,8 +59,14 @@ export default function ProductCard({ product }) {
         </Link>
 
         {/* Badge */}
+        {discountPercentage !== null && (
+          <span className="absolute left-2 top-2 z-10 rounded-sm bg-nera-wine px-2 py-1 text-[10px] font-semibold tracking-[0.08em] text-white">
+            {discountPercentage}% OFF
+          </span>
+        )}
+
         {product.badge && (
-          <span className="absolute left-3 top-3 bg-nera-white px-3 py-1.5 text-[9px] font-medium uppercase tracking-[0.12em] text-nera-wine">
+          <span className={`absolute left-3 ${discountPercentage !== null ? "top-11" : "top-3"} bg-nera-white px-3 py-1.5 text-[9px] font-medium uppercase tracking-[0.12em] text-nera-wine`}>
             {product.badge}
           </span>
         )}
@@ -122,21 +136,17 @@ export default function ProductCard({ product }) {
               </span>
             )}
 
-          {product.mrp != null &&
-            Number.isFinite(Number(product.mrp)) &&
-            Number.isFinite(
-              Number(product.sellingPrice)
-            ) &&
-            Number(product.mrp) >
-              Number(product.sellingPrice) && (
+          {hasDiscount && (
               <span className="text-xs text-nera-espresso/40 line-through">
-                ₹
-                {Number(
-                  product.mrp
-                ).toLocaleString("en-IN")}
+                ₹{mrp.toLocaleString("en-IN")}
               </span>
             )}
 
+          {hasDiscount && discountPercentage !== null && (
+            <span className="text-[9px] font-medium uppercase tracking-[0.1em] text-nera-gold">
+              {discountPercentage}% off
+            </span>
+          )}
         </div>
       </Link>
     </div>

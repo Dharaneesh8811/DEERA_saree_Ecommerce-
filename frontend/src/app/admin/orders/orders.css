@@ -1,0 +1,52 @@
+.orders-status-cell {
+  vertical-align: middle;
+}
+
+.orders-status-badge {
+  display: inline-flex;
+  width: 112px;
+  min-height: 32px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.orders-details-link {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border: 1px solid #d8b8a8;
+  border-radius: 6px;
+  color: #651b2e;
+  background: #fffdf8;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.orders-details-link:hover {
+  border-color: #651b2e;
+  color: #fffdf8;
+  background: #651b2e;
+}
+
+.orders-details-link:focus-visible {
+  outline: 2px solid #a0824d;
+  outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+  .orders-status-badge {
+    width: 104px;
+  }
+}

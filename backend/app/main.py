@@ -14,6 +14,9 @@ from app.api.routes.admin import router as admin_router
 from app.api.routes.returns import router as returns_router
 from app.api.routes.analytics import router as analytics_router
 from app.api.routes.bulk_orders import router as bulk_orders_router
+from app.api.routes.hero import router as hero_router
+from app.api.routes.hero_slides import router as hero_slides_router
+from app.api.routes.contact import router as contact_router
 
 from app.db.dependencies import get_db
 
@@ -28,6 +31,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://192.168.43.99:3000",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
         "http://localhost:3001",
@@ -48,6 +52,9 @@ app.include_router(admin_router)
 app.include_router(returns_router)
 app.include_router(analytics_router)
 app.include_router(bulk_orders_router)
+app.include_router(hero_router)
+app.include_router(hero_slides_router)
+app.include_router(contact_router)
 
 
 @app.get("/")

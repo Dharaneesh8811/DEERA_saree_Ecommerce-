@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  getCoupons,
+  getCouponsPage,
   createCoupon,
   updateCoupon,
   deleteCoupon,
 } from "@/services/couponServices";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import AdminPagination from "@/components/admin/AdminPagination";
 import "./coupons.css";
 import "../admin.css";
 
@@ -54,6 +55,9 @@ function formatDisplayDate(date) {
 
 export default function CouponsPage() {
   const [coupons, setCoupons] = useState([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
@@ -64,28 +68,44 @@ export default function CouponsPage() {
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const loadRequest = useRef(0);
 
-  async function loadCoupons() {
+  const loadCoupons = useCallback(async (targetPage = page, targetPageSize = pageSize) => {
+    const requestId = loadRequest.current + 1;
+    loadRequest.current = requestId;
     try {
       setLoading(true);
       setError("");
 
-      const data = await getCoupons();
-      setCoupons(Array.isArray(data) ? data : []);
+      const data = await getCouponsPage({
+        offset: (targetPage - 1) * targetPageSize,
+        limit: targetPageSize,
+      });
+      if (loadRequest.current !== requestId) return;
+
+      const nextTotal = Number(data.total) || 0;
+      const lastPage = Math.max(1, Math.ceil(nextTotal / targetPageSize));
+      setTotal(nextTotal);
+      if (targetPage > lastPage) {
+        setPage(lastPage);
+      } else {
+        setCoupons(Array.isArray(data.items) ? data.items : []);
+      }
     } catch (err) {
+      if (loadRequest.current !== requestId) return;
       setError(
         err.userMessage ||
           err.response?.data?.detail ||
           "Failed to load coupons."
       );
     } finally {
-      setLoading(false);
+      if (loadRequest.current === requestId) setLoading(false);
     }
-  }
+  }, [page, pageSize]);
 
   useEffect(() => {
-    loadCoupons();
-  }, []);
+    loadCoupons(page, pageSize);
+  }, [loadCoupons, page, pageSize]);
 
   function handleChange(event) {
     const { name, value, type, checked } = event.target;
@@ -202,7 +222,9 @@ export default function CouponsPage() {
         setSuccess("Coupon created successfully.");
       }
 
-      await loadCoupons();
+      const targetPage = editingCoupon ? page : 1;
+      if (targetPage !== page) setPage(targetPage);
+      await loadCoupons(targetPage, pageSize);
 
       setShowForm(false);
       setEditingCoupon(null);
@@ -232,9 +254,16 @@ export default function CouponsPage() {
 
       await deleteCoupon(coupon.id);
 
-      setCoupons((current) =>
-        current.filter((item) => item.id !== coupon.id)
-      );
+      const nextTotal = Math.max(0, total - 1);
+      setTotal(nextTotal);
+      if (coupons.length === 1 && page > 1) {
+        setPage(page - 1);
+      } else {
+        setCoupons((current) =>
+          current.filter((item) => item.id !== coupon.id)
+        );
+        await loadCoupons(page, pageSize);
+      }
 
       setSuccess(`Coupon "${coupon.code}" deleted successfully.`);
     } catch (err) {
@@ -409,17 +438,19 @@ export default function CouponsPage() {
                         <button
                           type="button"
                           className={`coupon-status ${
-                            coupon.is_active
-                              ? "active"
-                              : "inactive"
+                            !coupon.is_active || coupon.is_expired
+                              ? "inactive"
+                              : "active"
                           }`}
                           onClick={() =>
                             handleToggleStatus(coupon)
                           }
                         >
-                          {coupon.is_active
-                            ? "Active"
-                            : "Inactive"}
+                          {!coupon.is_active
+                            ? "Inactive"
+                            : coupon.is_expired
+                              ? "Expired"
+                              : "Active"}
                         </button>
                       </td>
 
@@ -455,6 +486,18 @@ export default function CouponsPage() {
               </table>
             </div>
           </div>
+        )}
+        {!loading && !error && (
+          <AdminPagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+          />
         )}
 
         {showForm && (

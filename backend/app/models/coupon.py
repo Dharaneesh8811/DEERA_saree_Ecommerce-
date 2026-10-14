@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import Boolean, DateTime, Numeric, String
@@ -63,3 +63,14 @@ class Coupon(UUIDMixin, TimestampMixin, Base):
         default=True,
         nullable=False,
     )
+
+    @property
+    def is_expired(self) -> bool:
+        if self.end_date is None:
+            return False
+
+        end_date = self.end_date
+        if end_date.tzinfo is None:
+            end_date = end_date.replace(tzinfo=timezone.utc)
+
+        return end_date <= datetime.now(timezone.utc)

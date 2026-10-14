@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import AdminPagination from "@/components/admin/AdminPagination";
 import "../admin.css";
 
 const STATUS_OPTIONS = [
@@ -20,22 +21,18 @@ export default function AdminBulkOrdersPage() {
   const router = useRouter();
 
   const [bulkOrders, setBulkOrders] = useState([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [statusCounts, setStatusCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
   const [error, setError] = useState("");
+  const loadRequest = useRef(0);
 
-  useEffect(() => {
-    const token = localStorage.getItem("dera_admin_token");
-
-    if (!token) {
-      router.replace("/admin/login");
-      return;
-    }
-
-    loadBulkOrders(token);
-  }, [router]);
-
-  async function loadBulkOrders(token) {
+  const loadBulkOrders = useCallback(async (token, targetPage = page, targetPageSize = pageSize) => {
+    const requestId = loadRequest.current + 1;
+    loadRequest.current = requestId;
     try {
       setLoading(true);
       setError("");
@@ -43,7 +40,7 @@ export default function AdminBulkOrdersPage() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
       const response = await fetch(
-        `${apiUrl}/api/admin/bulk-orders`,
+        `${apiUrl}/api/admin/bulk-orders/page?offset=${(targetPage - 1) * targetPageSize}&limit=${targetPageSize}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -63,19 +60,41 @@ export default function AdminBulkOrdersPage() {
       }
 
       const data = await response.json();
+      if (loadRequest.current !== requestId) return;
 
-      setBulkOrders(Array.isArray(data) ? data : []);
+      const nextTotal = Number(data.total) || 0;
+      const lastPage = Math.max(1, Math.ceil(nextTotal / targetPageSize));
+      setTotal(nextTotal);
+      setStatusCounts(data.status_counts || {});
+      if (targetPage > lastPage) {
+        setPage(lastPage);
+      } else {
+        setBulkOrders(Array.isArray(data.items) ? data.items : []);
+      }
     } catch (error) {
+      if (loadRequest.current !== requestId) return;
       console.error("Bulk orders loading error:", error);
       setError("Unable to load bulk orders.");
       setBulkOrders([]);
     } finally {
-      setLoading(false);
+      if (loadRequest.current === requestId) setLoading(false);
     }
-  }
+  }, [page, pageSize, router]);
+
+  useEffect(() => {
+    const token = localStorage.getItem("dera_admin_token");
+
+    if (!token) {
+      router.replace("/admin/login");
+      return;
+    }
+
+    loadBulkOrders(token, page, pageSize);
+  }, [loadBulkOrders, page, pageSize, router]);
 
   async function updateStatus(id, status) {
     const token = localStorage.getItem("dera_admin_token");
+    const previousStatus = bulkOrders.find((order) => order.id === id)?.status;
 
     if (!token) {
       router.replace("/admin/login");
@@ -119,6 +138,13 @@ export default function AdminBulkOrdersPage() {
           order.id === id ? updatedOrder : order
         )
       );
+      if (previousStatus && previousStatus !== status) {
+        setStatusCounts((current) => ({
+          ...current,
+          [previousStatus]: Math.max(0, (current[previousStatus] || 0) - 1),
+          [status]: (current[status] || 0) + 1,
+        }));
+      }
     } catch (error) {
       console.error("Bulk order status update error:", error);
       alert("Unable to update bulk order status.");
@@ -160,7 +186,7 @@ export default function AdminBulkOrdersPage() {
 
           <StatCard
             title="Total Requests"
-            value={loading ? "..." : bulkOrders.length}
+            value={loading ? "..." : total}
             subtitle="Bulk enquiries received"
             icon="◫"
           />
@@ -170,7 +196,7 @@ export default function AdminBulkOrdersPage() {
             value={
               loading
                 ? "..."
-                : countStatus(bulkOrders, "New")
+                : statusCounts.New || 0
             }
             subtitle="Awaiting contact"
             icon="!"
@@ -181,7 +207,7 @@ export default function AdminBulkOrdersPage() {
             value={
               loading
                 ? "..."
-                : countStatus(bulkOrders, "Quoted")
+                : statusCounts.Quoted || 0
             }
             subtitle="Quotes in progress"
             icon="₹"
@@ -192,7 +218,7 @@ export default function AdminBulkOrdersPage() {
             value={
               loading
                 ? "..."
-                : countStatus(bulkOrders, "Confirmed")
+                : statusCounts.Confirmed || 0
             }
             subtitle="Confirmed requests"
             icon="✓"
@@ -242,7 +268,9 @@ export default function AdminBulkOrdersPage() {
                   loadBulkOrders(
                     localStorage.getItem(
                       "dera_admin_token"
-                    )
+                    ),
+                    page,
+                    pageSize
                   )
                 }
                 className="admin-panel-link"
@@ -394,6 +422,18 @@ export default function AdminBulkOrdersPage() {
 
             </div>
           )}
+          {!loading && !error && (
+            <AdminPagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          )}
 
         </section>
 
@@ -438,12 +478,6 @@ function StatCard({
 /* =========================
    HELPERS
 ========================= */
-
-function countStatus(orders, status) {
-  return orders.filter(
-    (order) => order.status === status
-  ).length;
-}
 
 function formatDate(date) {
   if (!date) {

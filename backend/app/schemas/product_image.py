@@ -1,6 +1,8 @@
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
+
+from app.schemas.storage_image_response import StorageImageResponse
 
 
 class ProductImageBase(BaseModel):
@@ -21,8 +23,6 @@ class ProductImageUpdate(BaseModel):
     is_primary: bool | None = None
 
 
-class ProductImageResponse(ProductImageBase):
+class ProductImageResponse(ProductImageBase, StorageImageResponse):
     id: UUID
     product_id: UUID
-
-    model_config = ConfigDict(from_attributes=True)

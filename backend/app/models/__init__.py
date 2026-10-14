@@ -17,9 +17,12 @@ from app.models.review import Review
 from app.models.coupon import Coupon
 from app.models.return_request import ReturnRequest
 from app.models.bulk_order import BulkOrder
+from app.models.hero import Hero
+from app.models.contact_message import ContactMessage
 
 
 __all__ = [
+    "Hero",
     "Admin",
     "AdminRole",
     "Base",
@@ -37,4 +40,5 @@ __all__ = [
     "Review",
     "Coupon",
     "ReturnRequest",
+    "ContactMessage",
 ]

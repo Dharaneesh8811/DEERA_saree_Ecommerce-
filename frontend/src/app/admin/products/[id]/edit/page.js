@@ -49,6 +49,8 @@ const emptyForm = {
   description: "",
   price: "",
   mrp: "",
+  discount_type: "none",
+  discount_value: "",
   fabric: "",
   weave: "",
   zari: "",
@@ -163,6 +165,13 @@ export default function EditProductPage() {
           productData.description || "",
         price: productData.price ?? "",
         mrp: productData.mrp ?? "",
+        discount_type: productData.discount_type || "none",
+        discount_value:
+          productData.discount_type === "percentage"
+            ? productData.discount_percentage ?? ""
+            : productData.discount_type === "fixed_price"
+              ? productData.price ?? ""
+              : "",
         fabric: productData.fabric || "",
         weave: productData.weave || "",
         zari: productData.zari || "",
@@ -285,6 +294,34 @@ export default function EditProductPage() {
       return;
     }
 
+    const referencePrice = Number(form.mrp || form.price);
+    const discountValue = Number(form.discount_value);
+    if (
+      form.discount_type !== "none" &&
+      !String(form.discount_value).trim()
+    ) {
+      setError("Enter a discount value.");
+      return;
+    }
+    if (
+      form.discount_type === "percentage" &&
+      (!Number.isFinite(discountValue) ||
+        discountValue < 0 ||
+        discountValue >= 100)
+    ) {
+      setError("Enter a discount percentage from 0 up to, but not including, 100.");
+      return;
+    }
+    if (
+      form.discount_type === "fixed_price" &&
+      (!Number.isFinite(discountValue) ||
+        discountValue <= 0 ||
+        discountValue > referencePrice)
+    ) {
+      setError("The sale price must be greater than zero and no higher than the original price.");
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -303,6 +340,12 @@ export default function EditProductPage() {
         mrp: form.mrp
           ? Number(form.mrp)
           : null,
+
+        discount_type: form.discount_type,
+        discount_value:
+          form.discount_type === "none"
+            ? null
+            : discountValue,
 
         fabric:
           form.fabric.trim() ||
@@ -342,6 +385,18 @@ export default function EditProductPage() {
       setProduct((current) => ({
         ...current,
         ...updatedProduct,
+      }));
+      setForm((current) => ({
+        ...current,
+        price: updatedProduct.price ?? "",
+        mrp: updatedProduct.mrp ?? "",
+        discount_type: updatedProduct.discount_type || "none",
+        discount_value:
+          updatedProduct.discount_type === "percentage"
+            ? updatedProduct.discount_percentage ?? ""
+            : updatedProduct.discount_type === "fixed_price"
+              ? updatedProduct.price ?? ""
+              : "",
       }));
 
       setSuccess(
@@ -1264,6 +1319,58 @@ export default function EditProductPage() {
                 </div>
 
               </div>
+              <div className="edit-fields edit-fields-two edit-discount-fields">
+                <div className="edit-field">
+                  <label htmlFor="discount_type">
+                    Individual Discount
+                  </label>
+                  <select
+                    id="discount_type"
+                    name="discount_type"
+                    value={form.discount_type}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        discount_type: event.target.value,
+                        discount_value: "",
+                      }))
+                    }
+                  >
+                    <option value="none">No individual discount</option>
+                    <option value="percentage">Percentage discount</option>
+                    <option value="fixed_price">Fixed sale price</option>
+                  </select>
+                </div>
+                {form.discount_type !== "none" && (
+                  <div className="edit-field">
+                    <label htmlFor="discount_value">
+                      {form.discount_type === "percentage"
+                        ? "Discount Percentage"
+                        : "Fixed Sale Price"}
+                    </label>
+                    <div className="price-input">
+                      {form.discount_type === "fixed_price" && <span>₹</span>}
+                      <input
+                        id="discount_value"
+                        name="discount_value"
+                        type="number"
+                        min={form.discount_type === "percentage" ? "0" : "0.01"}
+                        max={form.discount_type === "percentage" ? "99.99" : undefined}
+                        step="0.01"
+                        value={form.discount_value}
+                        onChange={handleChange}
+                        required
+                      />
+                      {form.discount_type === "percentage" && <span>%</span>}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {form.discount_type !== "none" && (
+                <p className="mt-3 text-xs leading-5 text-[#a09892]">
+                  The discount is calculated from MRP when provided, otherwise from the selling price.
+                </p>
+              )}
             </section>
 
             {/* PRODUCT DETAILS */}

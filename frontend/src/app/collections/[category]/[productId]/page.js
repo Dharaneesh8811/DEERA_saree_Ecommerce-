@@ -545,7 +545,8 @@ export default function ProductPage() {
                 )}
               </span>
 
-              {product.mrp !== null && (
+              {product.mrp !== null &&
+                product.mrp > product.sellingPrice && (
                 <span className="text-sm text-nera-espresso/35 line-through">
                   ₹
                   {product.mrp.toLocaleString(

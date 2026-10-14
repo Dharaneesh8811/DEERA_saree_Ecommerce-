@@ -13,6 +13,15 @@ export default function RootLayout({ children }) {
 
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" href="/icon.png" />
+        <title>Deera Silks</title>
+        <meta
+          name="description"
+          content="Traditional silk sarees crafted for generations."
+        />
+      </head>
+
       <body>
         {!isAdminPage && <Header />}
 

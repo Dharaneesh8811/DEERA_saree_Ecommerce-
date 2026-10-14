@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Minus,
@@ -11,11 +12,36 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
+import { getProducts } from "@/services/productService";
+import { getActiveDiscountPercentage } from "@/utils/productDiscount";
 
 export default function CartPage() {
   const cartItems = useCartStore((state) => state.cartItems);
   const removeFromCart = useCartStore((state) => state.removeFromCart);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
+  const refreshCartPrices = useCartStore((state) => state.refreshCartPrices);
+  const [priceRefreshError, setPriceRefreshError] = useState("");
+
+  useEffect(() => {
+    if (cartItems.length === 0) return undefined;
+
+    let current = true;
+    getProducts()
+      .then((products) => {
+        if (current) refreshCartPrices(products);
+      })
+      .catch(() => {
+        if (current) {
+          setPriceRefreshError(
+            "Current prices could not be refreshed. Your order total will be verified at checkout."
+          );
+        }
+      });
+
+    return () => {
+      current = false;
+    };
+  }, [cartItems.length, refreshCartPrices]);
 
   const subtotal = cartItems.reduce(
     (total, item) => total + item.price * item.quantity,
@@ -111,6 +137,15 @@ export default function CartPage() {
           </div>
         </div>
 
+        {priceRefreshError && (
+          <p
+            className="mb-6 border border-nera-gold/25 bg-nera-white px-4 py-3 text-xs leading-5 text-nera-espresso/65"
+            role="status"
+          >
+            {priceRefreshError}
+          </p>
+        )}
+
         {/* ================= MAIN GRID ================= */}
 
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
@@ -123,6 +158,7 @@ export default function CartPage() {
 
               const itemMrp = item.mrp || item.price;
               const itemSaving = itemMrp - item.price;
+              const discountPercentage = getActiveDiscountPercentage(item);
 
               return (
                 <article
@@ -141,11 +177,17 @@ export default function CartPage() {
                       <img
                         src={item.image}
                         alt={item.name}
-                        className="aspect-[4/5] h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                        className="relative z-0 aspect-[4/5] h-full w-full object-cover transition duration-700 group-hover:scale-105"
                       />
 
+                      {discountPercentage !== null && (
+                        <span className="absolute left-2 top-2 z-10 rounded-sm bg-nera-wine px-2 py-1 text-[10px] font-semibold tracking-[0.08em] text-white">
+                          {discountPercentage}% OFF
+                        </span>
+                      )}
+
                       {item.badge && (
-                        <span className="absolute left-2 top-2 bg-nera-wine px-2 py-1 text-[8px] uppercase tracking-[0.12em] text-white">
+                        <span className={`absolute left-2 ${discountPercentage !== null ? "top-9" : "top-2"} z-10 rounded-sm bg-nera-wine px-2 py-1 text-[8px] uppercase tracking-[0.12em] text-white`}>
                           {item.badge}
                         </span>
                       )}

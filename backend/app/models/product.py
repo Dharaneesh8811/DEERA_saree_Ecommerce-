@@ -158,3 +158,11 @@ class Product(UUIDMixin, TimestampMixin, Base):
         back_populates="product",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def discount_type(self) -> str:
+        if self.mrp is None or self.mrp <= self.price:
+            return "none"
+        if self.discount_percentage is not None:
+            return "percentage"
+        return "fixed_price"

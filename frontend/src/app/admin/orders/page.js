@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
-import { getAdminOrders } from "@/services/orderService";
+import AdminPagination from "@/components/admin/AdminPagination";
+import { getAdminOrdersPage } from "@/services/orderService";
 
 import "../admin.css";
 import "./orders.css";
@@ -70,27 +71,38 @@ function getItemCount(items) {
 
 export default function AdminOrdersPage() {
 	const [orders, setOrders] = useState([]);
+	const [page, setPage] = useState(1);
+	const [pageSize, setPageSize] = useState(10);
+	const [total, setTotal] = useState(0);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
-	const loadStarted = useRef(false);
 
 	useEffect(() => {
-		if (loadStarted.current) return;
-		loadStarted.current = true;
+		let cancelled = false;
 
 		async function loadOrders() {
+			setLoading(true);
+			setError("");
 			try {
-				const data = await getAdminOrders();
-				setOrders(Array.isArray(data) ? data : []);
+				const data = await getAdminOrdersPage({
+					offset: (page - 1) * pageSize,
+					limit: pageSize,
+				});
+				if (cancelled) return;
+				setOrders(Array.isArray(data.items) ? data.items : []);
+				setTotal(Number(data.total) || 0);
 			} catch (requestError) {
-				setError(getOrdersErrorMessage(requestError));
+				if (!cancelled) setError(getOrdersErrorMessage(requestError));
 			} finally {
-				setLoading(false);
+				if (!cancelled) setLoading(false);
 			}
 		}
 
 		loadOrders();
-	}, []);
+		return () => {
+			cancelled = true;
+		};
+	}, [page, pageSize]);
 
 	return (
 		<div className="admin-layout">
@@ -216,17 +228,12 @@ export default function AdminOrdersPage() {
 												>
 													{formatAmount(order)}
 												</td>
-												<td style={{ padding: "16px", borderBottom: "1px solid #eee4d7" }}>
+												<td className="orders-status-cell" style={{ padding: "16px", borderBottom: "1px solid #eee4d7" }}>
 													<span
+														className="orders-status-badge"
 														style={{
-															display: "inline-block",
-															padding: "6px 9px",
-															borderRadius: 20,
 															background: statusStyle.background,
 															color: statusStyle.color,
-															fontSize: 10,
-															fontWeight: 600,
-															whiteSpace: "nowrap",
 														}}
 													>
 														{statusLabels[rawStatus] || order.status || "—"}
@@ -246,7 +253,7 @@ export default function AdminOrdersPage() {
 												<td style={{ padding: "16px", borderBottom: "1px solid #eee4d7" }}>
 													<Link
 														href={`/admin/orders/${order.id}`}
-														style={{ color: "#651b2e", fontSize: 11, fontWeight: 600 }}
+														className="orders-details-link"
 													>
 														Details
 													</Link>
@@ -257,6 +264,18 @@ export default function AdminOrdersPage() {
 								</tbody>
 							</table>
 						</div>
+					)}
+					{!loading && !error && (
+						<AdminPagination
+							page={page}
+							pageSize={pageSize}
+							total={total}
+							onPageChange={setPage}
+							onPageSizeChange={(size) => {
+								setPageSize(size);
+								setPage(1);
+							}}
+						/>
 					)}
 				</section>
 			</main>
